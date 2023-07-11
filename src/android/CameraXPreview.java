@@ -16,7 +16,7 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
 
-import com.cordovaplugincamerax.CameraPreviewFragment;
+import com.cordovaplugincamerax.CameraXFragment;
 import com.cordovaplugincamerax.CameraStartedCallback;
 
 import org.apache.cordova.CallbackContext;
