@@ -12,6 +12,9 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
 
+import com.cordovaplugincamerax.CameraPreviewFragment;
+import com.cordovaplugincamerax.CameraStartedCallback;
+
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
@@ -23,7 +26,7 @@ import java.util.List;
 import java.util.Arrays;
 import java.io.File;
 
-public class CameraPreview extends CordovaPlugin implements CameraPreviewFragment.CameraPreviewListener {
+public class CameraPreview extends CordovaPlugin {
     private static final String VIDEO_FILE_EXTENSION = ".mp4";
     private static final String TAG = "CameraPreview";
 
@@ -99,9 +102,7 @@ public class CameraPreview extends CordovaPlugin implements CameraPreviewFragmen
         Log.d(TAG, "Called CameraPreview plugin with action : " + action);
         if (START_CAMERA_ACTION.equals(action)) {
             if (cordova.hasPermission(permissions[0])) {
-                return startCamera(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3), args.getString(4),
-                        args.getBoolean(5), args.getBoolean(6), args.getBoolean(7), args.getString(8),
-                        args.getBoolean(9), callbackContext);
+                return startCamera(callbackContext);
             } else {
                 this.execCallback = callbackContext;
                 this.execArgs = args;
@@ -145,9 +146,18 @@ public class CameraPreview extends CordovaPlugin implements CameraPreviewFragmen
         return false;
     }
 
-    private void startCamera(int x, int y, int width, int height, String defaultCamera, Boolean tapToTakePicture,
-            Boolean dragEnabled, final Boolean toBack, String alpha, boolean tapFocus,
-            CallbackContext callbackContext) {
-
+    private boolean startCamera(CallbackContext callbackContext) {
+        fragment = new CameraPreviewFragment(new CameraStartedCallback() {
+            @Override
+            public void onCameraStarted(Exception err) {
+                if (err != null) {
+                    callbackContext.error(err.getMessage());
+                    return;
+                }
+                PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, "Camera started");
+                callbackContext.sendPluginResult(pluginResult);
+            }
+        });
+        return true;
     }
 }
