@@ -21,6 +21,7 @@
             target-dir="src/com/cordovaplugincamerax" />
         <source-file src="src/android/CameraXPreview.java" target-dir="src/com/cordovaplugincamerax" />
         <source-file src="src/android/camera_fragment.xml" target-dir="res/layout" />
+        <source-file src="src/android/camerax_theme.xml" target-dir="res/values" />
 
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="CameraXPreview">
