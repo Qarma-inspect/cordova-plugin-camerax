@@ -32,7 +32,7 @@ import java.io.File;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.RunnableFuture;
 
-public class CameraPreview extends CordovaPlugin {
+public class CameraXPreview extends CordovaPlugin {
     private static final String VIDEO_FILE_EXTENSION = ".mp4";
     private static final String TAG = "CameraPreview";
 
@@ -82,7 +82,7 @@ public class CameraPreview extends CordovaPlugin {
             Manifest.permission.CAMERA
     };
 
-    private CameraPreviewFragment fragment;
+    private CameraXFragment fragment;
     private CallbackContext takePictureCallbackContext;
     private CallbackContext setFocusCallbackContext;
     private CallbackContext startCameraCallbackContext;
@@ -97,7 +97,7 @@ public class CameraPreview extends CordovaPlugin {
     private int containerViewId = 1;
     private String VIDEO_FILE_PATH = "";
 
-    public CameraPreview() {
+    public CameraXPreview() {
         super();
         Log.d(TAG, "Constructing");
     }
@@ -158,7 +158,7 @@ public class CameraPreview extends CordovaPlugin {
         // page events
         webView.getView().requestFocus();
 
-        fragment = new CameraPreviewFragment((err) -> {
+        fragment = new CameraXFragment((err) -> {
             if (err != null) {
                 callbackContext.error(err.getMessage());
                 return;

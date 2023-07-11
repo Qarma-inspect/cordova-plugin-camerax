@@ -17,14 +17,14 @@
     </js-module>
 
     <platform name="android">
-        <source-file src="src/android/CameraPreviewFragment.java"
+        <source-file src="src/android/CameraXFragment.java"
             target-dir="src/com/cordovaplugincamerax" />
-        <source-file src="src/android/CameraPreview.java" target-dir="src/com/cordovaplugincamerax" />
+        <source-file src="src/android/CameraXPreview.java" target-dir="src/com/cordovaplugincamerax" />
         <source-file src="src/android/camera_fragment.xml" target-dir="res/layout" />
 
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="CameraPreview">
-                <param name="android-package" value="com.cordovaplugincamerax.CameraPreview" />
+                <param name="android-package" value="com.cordovaplugincamerax.CameraXPreview" />
                 <param name="onload" value="true" />
             </feature>
         </config-file>
@@ -36,8 +36,8 @@
         </config-file>
 
         <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <activity android:name="com.cordovaplugincamerax.CameraPreviewFragment"
-                android:screenOrientation="portrait" android:theme="@style/CameraPreviewTheme"
+            <activity android:name="com.cordovaplugincamerax.CameraXFragment"
+                android:screenOrientation="portrait" android:theme="@style/CameraXTheme"
                 android:exported="false" />
         </config-file>
 

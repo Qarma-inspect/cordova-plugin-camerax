@@ -35,7 +35,7 @@ interface CameraStartedCallback {
     void onCameraStarted(Exception err);
 }
 
-public class CameraPreviewFragment extends Fragment {
+public class CameraXFragment extends Fragment {
 
     private static final String TAG = "CameraActivity";
     public FrameLayout mainLayout;
@@ -67,12 +67,12 @@ public class CameraPreviewFragment extends Fragment {
     private ImageCapture imageCapture;
     private CameraStartedCallback startCameraCallback;
 
-    public CameraPreviewFragment() {
+    public CameraXFragment() {
 
     }
 
     @SuppressLint("ValidFragment")
-    public CameraPreviewFragment(CameraStartedCallback cameraStartedCallback) {
+    public CameraXFragment(CameraStartedCallback cameraStartedCallback) {
         startCameraCallback = cameraStartedCallback;
     }
 
