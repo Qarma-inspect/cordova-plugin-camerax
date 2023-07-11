@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Arrays;
 import java.io.File;
 
-public class CameraPreview extends CordovaPlugin implements CameraActivity.CameraPreviewListener {
+public class CameraPreview extends CordovaPlugin implements CameraPreviewFragment.CameraPreviewListener {
     private static final String VIDEO_FILE_EXTENSION = ".mp4";
     private static final String TAG = "CameraPreview";
 
@@ -73,7 +73,7 @@ public class CameraPreview extends CordovaPlugin implements CameraActivity.Camer
             Manifest.permission.CAMERA
     };
 
-    private CameraActivity fragment;
+    private CameraPreviewFragment fragment;
     private CallbackContext takePictureCallbackContext;
     private CallbackContext setFocusCallbackContext;
     private CallbackContext startCameraCallbackContext;
@@ -108,86 +108,46 @@ public class CameraPreview extends CordovaPlugin implements CameraActivity.Camer
                 cordova.requestPermissions(this, CAM_REQ_CODE, permissions);
             }
         } else if (TAKE_PICTURE_ACTION.equals(action)) {
-            return takePicture(args.getInt(0), args.getInt(1), args.getInt(2), callbackContext);
         } else if (TAKE_PICTURE_TO_FILE_ACTION.equals(action)) {
-            return takePictureToFile(
-                    args.getInt(0),
-                    args.getInt(1),
-                    args.getInt(2),
-                    args.getString(3),
-                    args.getInt(4),
-                    callbackContext);
         } else if (COLOR_EFFECT_ACTION.equals(action)) {
-            return setColorEffect(args.getString(0), callbackContext);
         } else if (ZOOM_ACTION.equals(action)) {
-            return setZoom(args.getInt(0), callbackContext);
         } else if (GET_ZOOM_ACTION.equals(action)) {
-            return getZoom(callbackContext);
         } else if (GET_MAX_ZOOM_ACTION.equals(action)) {
-            return getMaxZoom(callbackContext);
         } else if (PREVIEW_SIZE_ACTION.equals(action)) {
-            return setPreviewSize(args.getInt(0), args.getInt(1), callbackContext);
         } else if (SUPPORTED_FLASH_MODES_ACTION.equals(action)) {
-            return getSupportedFlashModes(callbackContext);
         } else if (GET_FLASH_MODE_ACTION.equals(action)) {
-            return getFlashMode(callbackContext);
         } else if (SET_FLASH_MODE_ACTION.equals(action)) {
-            return setFlashMode(args.getString(0), callbackContext);
         } else if (STOP_CAMERA_ACTION.equals(action)) {
-            return stopCamera(callbackContext);
         } else if (SHOW_CAMERA_ACTION.equals(action)) {
-            return showCamera(callbackContext);
         } else if (HIDE_CAMERA_ACTION.equals(action)) {
-            return hideCamera(callbackContext);
         } else if (TAP_TO_FOCUS.equals(action)) {
-            return tapToFocus(args.getInt(0), args.getInt(1), callbackContext);
         } else if (SWITCH_CAMERA_ACTION.equals(action)) {
-            return switchCamera(callbackContext);
         } else if (SUPPORTED_PICTURE_SIZES_ACTION.equals(action)) {
-            return getSupportedPictureSizes(callbackContext);
         } else if (SUPPORTED_PREVIEW_SIZES_ACTION.equals(action)) {
-            return getSupportedPreviewSizes(callbackContext);
         } else if (GET_EXPOSURE_MODES_ACTION.equals(action)) {
-            return getExposureModes(callbackContext);
         } else if (SUPPORTED_FOCUS_MODES_ACTION.equals(action)) {
-            return getSupportedFocusModes(callbackContext);
         } else if (GET_FOCUS_MODE_ACTION.equals(action)) {
-            return getFocusMode(callbackContext);
         } else if (SET_FOCUS_MODE_ACTION.equals(action)) {
-            return setFocusMode(args.getString(0), callbackContext);
         } else if (GET_EXPOSURE_MODE_ACTION.equals(action)) {
-            return getExposureMode(callbackContext);
         } else if (SET_EXPOSURE_MODE_ACTION.equals(action)) {
-            return setExposureMode(args.getString(0), callbackContext);
         } else if (GET_EXPOSURE_COMPENSATION_ACTION.equals(action)) {
-            return getExposureCompensation(callbackContext);
         } else if (SET_EXPOSURE_COMPENSATION_ACTION.equals(action)) {
-            return setExposureCompensation(args.getInt(0), callbackContext);
         } else if (GET_EXPOSURE_COMPENSATION_RANGE_ACTION.equals(action)) {
-            return getExposureCompensationRange(callbackContext);
         } else if (SUPPORTED_WHITE_BALANCE_MODES_ACTION.equals(action)) {
-            return getSupportedWhiteBalanceModes(callbackContext);
         } else if (GET_WHITE_BALANCE_MODE_ACTION.equals(action)) {
-            return getWhiteBalanceMode(callbackContext);
         } else if (SET_WHITE_BALANCE_MODE_ACTION.equals(action)) {
-            return setWhiteBalanceMode(args.getString(0), callbackContext);
         } else if (GET_CAMERA_INFO_ROTATION.equals(action)) {
-            return getCameraInfoRotation(args.getString(0), callbackContext);
         } else if (SET_CAMERA_PARAMETER_RESOLUTION.equals(action)) {
-            return setCameraParameterResolution(args.getInt(0), args.getInt(1), callbackContext);
         } else if (START_RECORD_VIDEO_ACTION.equals(action)) {
-            if (cordova.hasPermission(videoPermissions[0]) && cordova.hasPermission(videoPermissions[1])) {
-                return startRecordVideo(args.getString(0), args.getString(1), args.getString(2), args.getInt(3),
-                        args.getInt(4), args.getInt(5), args.getBoolean(6), callbackContext);
-            } else {
-                this.execCallback = callbackContext;
-                this.execArgs = args;
-                cordova.requestPermissions(this, VID_REQ_CODE, videoPermissions);
-                return true;
-            }
+
         } else if (STOP_RECORD_VIDEO_ACTION.equals(action)) {
-            return stopRecordVideo(callbackContext);
         }
         return false;
+    }
+
+    private void startCamera(int x, int y, int width, int height, String defaultCamera, Boolean tapToTakePicture,
+            Boolean dragEnabled, final Boolean toBack, String alpha, boolean tapFocus,
+            CallbackContext callbackContext) {
+
     }
 }

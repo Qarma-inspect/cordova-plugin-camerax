@@ -14,7 +14,7 @@ interface CameraPreviewStartCameraXOptions {
     y?: number;
 }
 
-type CameraPreviewCameraDirection = 'back'|'front';
+type CameraPreviewCameraDirection = "back" | "front";
 
 interface CameraPreview {
     startCamera(

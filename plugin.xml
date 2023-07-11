@@ -1,40 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<plugin id="cordova-plugin-camerax" version="0.0.1" xmlns="http://apache.org/cordova/ns/plugins/1.0" xmlns:android="http://schemas.android.com/apk/res/android">
+<plugin id="cordova-plugin-camerax" version="0.0.1" xmlns="http://apache.org/cordova/ns/plugins/1.0"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
-   <name>cordova-plugin-camera-x</name>
-  <description>Cordova plugin that allows camera interaction from HTML code, using CameraX api. Only for Android</description>
-  <license>Apache 2.0</license>
-  <keywords>cordova,phonegap,ecosystem:cordova,cordova-android,cordova-ios,android,ios,ionic,camerax,cam,camera-preview,preview</keywords>
-  <repo>https://github.com/Qarma-inspect/cordova-plugin-camerax</repo>
-  <issue>https://github.com/Qarma-inspect/cordova-plugin-camerax/issues</issue>
+    <name>cordova-plugin-camera-x</name>
+    <description>Cordova plugin that allows camera interaction from HTML code, using CameraX api.
+        Only for Android</description>
+    <license>Apache 2.0</license>
+    <keywords>
+        cordova,phonegap,ecosystem:cordova,cordova-android,cordova-ios,android,ios,ionic,camerax,cam,camera-preview,preview</keywords>
+    <repo>https://github.com/Qarma-inspect/cordova-plugin-camerax</repo>
+    <issue>https://github.com/Qarma-inspect/cordova-plugin-camerax/issues</issue>
 
-  <js-module src="www/CameraX.js" name="CameraX">
-    <clobbers target="CameraX" />
-  </js-module>
+    <js-module src="www/CameraX.js" name="CameraX">
+        <clobbers target="CameraX" />
+    </js-module>
 
-  <platform name="android">
-    <source-file src="src/android/CameraActivity.java" target-dir="src/com/cordovaplugincamerax" />
-    <source-file src="src/android/camera_activity.xml" target-dir="res/layout" />
+    <platform name="android">
+        <source-file src="src/android/CameraPreviewFragment.java"
+            target-dir="src/com/cordovaplugincamerax" />
+        <source-file src="src/android/CameraPreview.java" target-dir="src/com/cordovaplugincamerax" />
+        <source-file src="src/android/camera_fragment.xml" target-dir="res/layout" />
 
-    <config-file target="res/xml/config.xml" parent="/*">
-      <feature name="CameraPreview">
-        <param name="android-package" value="com.cordovaplugincamerax.CameraPreview" />
-        <param name="onload" value="true" />
-      </feature>
-    </config-file>
+        <config-file target="res/xml/config.xml" parent="/*">
+            <feature name="CameraPreview">
+                <param name="android-package" value="com.cordovaplugincamerax.CameraPreview" />
+                <param name="onload" value="true" />
+            </feature>
+        </config-file>
 
-    <config-file target="AndroidManifest.xml" parent="/manifest">
-      <uses-feature android:name="android.hardware.camera" android:required="true" />
-      <uses-feature android:name="android.hardware.camera.autofocus" />
-      <uses-permission android:name="android.permission.CAMERA" />
-    </config-file>
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-feature android:name="android.hardware.camera" android:required="true" />
+            <uses-feature android:name="android.hardware.camera.autofocus" />
+            <uses-permission android:name="android.permission.CAMERA" />
+        </config-file>
 
-    <config-file target="AndroidManifest.xml" parent="/manifest/application">
-      <activity android:name="com.cordovaplugincamerax.CameraActivity" android:screenOrientation="portrait" android:theme="@style/CameraPreviewTheme" android:exported="false"/>
-    </config-file>
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <activity android:name="com.cordovaplugincamerax.CameraPreviewFragment"
+                android:screenOrientation="portrait" android:theme="@style/CameraPreviewTheme"
+                android:exported="false" />
+        </config-file>
 
-    <framework src="com.android.support:support-v4:27.1.3"/>
-    <framework src="com.android.support:exifinterface:27.1.3"/>
-  </platform>
+        <framework src="com.android.support:support-v4:27.1.3" />
+        <framework src="com.android.support:exifinterface:27.1.3" />
+    </platform>
 </plugin>
