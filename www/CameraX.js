@@ -10,7 +10,7 @@ function isFunction(obj) {
     return !!(obj && obj.constructor && obj.call && obj.apply);
 };
 
-CameraX.startCamera = function (options, onSuccess, onError) {
+CameraX.startCameraX = function (options, onSuccess, onError) {
     options = options || {};
     options.x = options.x || 0;
     options.y = options.y || 0;
@@ -31,7 +31,7 @@ CameraX.startCamera = function (options, onSuccess, onError) {
         options.alpha = 1;
     }
 
-    exec(onSuccess, onError, PLUGIN_NAME, "startCamera", [options.x, options.y, options.width, options.height, options.camera, options.tapPhoto, options.previewDrag, options.toBack, options.alpha, options.tapFocus]);
+    exec(onSuccess, onError, PLUGIN_NAME, "startCameraX", [options.x, options.y, options.width, options.height, options.camera, options.tapPhoto, options.previewDrag, options.toBack, options.alpha, options.tapFocus]);
 };
 
 CameraX.stopCamera = function (onSuccess, onError) {

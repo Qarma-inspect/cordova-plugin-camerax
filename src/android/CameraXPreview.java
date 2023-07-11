@@ -43,7 +43,7 @@ public class CameraXPreview extends CordovaPlugin {
     private static final String SUPPORTED_FLASH_MODES_ACTION = "getSupportedFlashModes";
     private static final String GET_FLASH_MODE_ACTION = "getFlashMode";
     private static final String SET_FLASH_MODE_ACTION = "setFlashMode";
-    private static final String START_CAMERA_ACTION = "startCamera";
+    private static final String START_CAMERA_ACTION = "startCameraX";
     private static final String STOP_CAMERA_ACTION = "stopCamera";
     private static final String PREVIEW_SIZE_ACTION = "setPreviewSize";
     private static final String SWITCH_CAMERA_ACTION = "switchCamera";
@@ -108,7 +108,7 @@ public class CameraXPreview extends CordovaPlugin {
         Log.d(TAG, "Called CameraPreview plugin with action : " + action);
         if (START_CAMERA_ACTION.equals(action)) {
             if (cordova.hasPermission(permissions[0])) {
-                return startCamera(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3), callbackContext);
+                return startCameraX(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3), callbackContext);
             } else {
                 this.execCallback = callbackContext;
                 this.execArgs = args;
@@ -152,7 +152,7 @@ public class CameraXPreview extends CordovaPlugin {
         return false;
     }
 
-    private boolean startCamera(int x, int y, int width, int height, CallbackContext callbackContext) {
+    private boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
         webView.getView().setBackgroundColor(0x00000000);
         // Request focus on webView as page needs to be clicked/tapped to get focus on
         // page events
