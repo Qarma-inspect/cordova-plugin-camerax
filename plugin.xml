@@ -20,8 +20,6 @@
         <source-file src="src/android/CameraXFragment.java"
             target-dir="src/com/cordovaplugincamerax" />
         <source-file src="src/android/CameraXPreview.java" target-dir="src/com/cordovaplugincamerax" />
-        <source-file src="src/android/camera_fragment.xml" target-dir="res/layout" />
-        <source-file src="src/android/camerax_theme.xml" target-dir="res/values" />
 
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="CameraXPreview">
@@ -34,12 +32,6 @@
             <uses-feature android:name="android.hardware.camera" android:required="true" />
             <uses-feature android:name="android.hardware.camera.autofocus" />
             <uses-permission android:name="android.permission.CAMERA" />
-        </config-file>
-
-        <config-file target="AndroidManifest.xml" parent="/manifest/application">
-            <activity android:name="com.cordovaplugincamerax.CameraXFragment"
-                android:screenOrientation="portrait" android:theme="@style/CameraXTheme"
-                android:exported="false" />
         </config-file>
 
         <framework src="com.android.support:support-v4:27.1.3" />
