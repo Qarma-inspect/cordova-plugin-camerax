@@ -1,7 +1,7 @@
 package com.cordovaplugincamerax;
 
 import android.annotation.SuppressLint;
-import android.app.Fragment;
+import androidx.fragment.app.Fragment;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Size;
@@ -41,7 +41,6 @@ public class CameraPreviewFragment extends Fragment {
     public FrameLayout mainLayout;
     public FrameLayout frameContainerLayout;
 
-
     private View view;
     private Camera mCamera;
     private int cameraCurrentlyLocked;
@@ -77,17 +76,18 @@ public class CameraPreviewFragment extends Fragment {
         startCameraCallback = cameraStartedCallback;
     }
 
-
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         RelativeLayout containerView = new RelativeLayout(getActivity());
-        RelativeLayout.LayoutParams containerLayoutParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
+        RelativeLayout.LayoutParams containerLayoutParams = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT);
         containerLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_TOP);
         containerLayoutParams.addRule(RelativeLayout.ALIGN_PARENT_START);
         containerView.setLayoutParams(containerLayoutParams);
 
         previewView = new PreviewView(getActivity());
-        previewView.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
+        previewView.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT,
+                RelativeLayout.LayoutParams.MATCH_PARENT));
         containerView.addView(previewView);
         startCamera();
 
@@ -111,7 +111,6 @@ public class CameraPreviewFragment extends Fragment {
                 .requireLensFacing(CameraSelector.LENS_FACING_BACK)
                 .build();
 
-
         preview = new Preview.Builder().build();
         imageCapture = new ImageCapture.Builder()
                 .setTargetResolution(new Size(3000, 4000))
@@ -120,22 +119,20 @@ public class CameraPreviewFragment extends Fragment {
         cameraProvider.unbindAll();
         try {
             mCamera = cameraProvider.bindToLifecycle(
-                    (LifecycleOwner) this,
+                    this,
                     cameraSelector,
                     preview,
-                    imageCapture
-            );
+                    imageCapture);
         } catch (IllegalArgumentException e) {
             // Error with result in capturing image with default resolution
             e.printStackTrace();
             imageCapture = new ImageCapture.Builder()
                     .build();
             mCamera = cameraProvider.bindToLifecycle(
-                    (LifecycleOwner) this,
+                    this,
                     cameraSelector,
                     preview,
-                    imageCapture
-            );
+                    imageCapture);
         }
 
         preview.setSurfaceProvider(previewView.getSurfaceProvider());

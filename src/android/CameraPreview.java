@@ -4,7 +4,11 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
+import android.graphics.Color;
 import android.hardware.Camera;
+import android.location.Location;
+import android.location.LocationListener;
+import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
@@ -25,6 +29,8 @@ import org.json.JSONException;
 import java.util.List;
 import java.util.Arrays;
 import java.io.File;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.RunnableFuture;
 
 public class CameraPreview extends CordovaPlugin {
     private static final String VIDEO_FILE_EXTENSION = ".mp4";
@@ -102,7 +108,7 @@ public class CameraPreview extends CordovaPlugin {
         Log.d(TAG, "Called CameraPreview plugin with action : " + action);
         if (START_CAMERA_ACTION.equals(action)) {
             if (cordova.hasPermission(permissions[0])) {
-                return startCamera(callbackContext);
+                return startCamera(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3), callbackContext);
             } else {
                 this.execCallback = callbackContext;
                 this.execArgs = args;
@@ -146,18 +152,51 @@ public class CameraPreview extends CordovaPlugin {
         return false;
     }
 
-    private boolean startCamera(CallbackContext callbackContext) {
-        fragment = new CameraPreviewFragment(new CameraStartedCallback() {
-            @Override
-            public void onCameraStarted(Exception err) {
-                if (err != null) {
-                    callbackContext.error(err.getMessage());
-                    return;
-                }
-                PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, "Camera started");
-                callbackContext.sendPluginResult(pluginResult);
+    private boolean startCamera(int x, int y, int width, int height, CallbackContext callbackContext) {
+        webView.getView().setBackgroundColor(0x00000000);
+        // Request focus on webView as page needs to be clicked/tapped to get focus on
+        // page events
+        webView.getView().requestFocus();
+
+        fragment = new CameraPreviewFragment((err) -> {
+            if (err != null) {
+                callbackContext.error(err.getMessage());
+                return;
             }
+            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, "Camera started");
+            callbackContext.sendPluginResult(pluginResult);
         });
+
+        try {
+            RunnableFuture<Void> addViewTask = new FutureTask<>(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            DisplayMetrics metrics = new DisplayMetrics();
+                            cordova.getActivity().getWindowManager().getDefaultDisplay().getMetrics(metrics);
+
+                            FrameLayout containerView = cordova.getActivity().findViewById(containerViewId);
+                            if (containerView == null) {
+                                containerView = new FrameLayout(cordova.getActivity().getApplicationContext());
+                                containerView.setId(containerViewId);
+                                FrameLayout.LayoutParams containerLayoutParams = new FrameLayout.LayoutParams(width,
+                                        height);
+                                containerLayoutParams.setMargins(x, y, 0, 0);
+                                cordova.getActivity().addContentView(containerView, containerLayoutParams);
+                            }
+                            cordova.getActivity().getWindow().getDecorView().setBackgroundColor(Color.BLACK);
+                            webViewParent = webView.getView().getParent();
+                            webView.getView().bringToFront();
+                            cordova.getActivity().getSupportFragmentManager().beginTransaction()
+                                    .replace(containerViewId, fragment).commitAllowingStateLoss();
+                        }
+                    },
+                    null);
+            cordova.getActivity().runOnUiThread(addViewTask);
+            addViewTask.get();
+        } catch (Exception e) {
+
+        }
         return true;
     }
 }
