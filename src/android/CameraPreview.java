@@ -1,4 +1,4 @@
-package com.cordovaplugincamerapreview;
+package com.cordovaplugincamerax;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
