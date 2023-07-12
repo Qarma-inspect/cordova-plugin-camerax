@@ -14,6 +14,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
+import android.view.Surface;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
@@ -66,6 +67,7 @@ public class CameraXPreview extends CordovaPlugin {
     private Camera cameraInstance;
     private ImageCapture imageCapture;
     private CameraSelector cameraSelector;
+    private ProcessCameraProvider cameraProvider;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
 
     public CameraXPreview() {
@@ -89,9 +91,7 @@ public class CameraXPreview extends CordovaPlugin {
         } else if (STOP_CAMERA_ACTION.equals(action)) {
             return stopCameraX(callbackContext);
         } else if (TAKE_PICTURE_ACTION.equals(action)) {
-            return takePicture(args.getInt(0),
-                    args.getInt(1),
-                    args.getInt(2),
+            return takePicture(args.getInt(2),
                     args.getString(3),
                     args.getInt(4),
                     callbackContext);
@@ -103,9 +103,9 @@ public class CameraXPreview extends CordovaPlugin {
         cordova.getActivity().runOnUiThread(() -> {
             setupPreviewView(x, y, width, height);
 
-            this.cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
+            cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
             cameraProviderFuture.addListener(() -> {
-                setupPreviewUseCaseAndInitCameraInstance(callbackContext);
+                setupUseCasesAndInitCameraInstance(callbackContext);
             }, ContextCompat.getMainExecutor(cordova.getContext()));
         });
         return true;
@@ -135,39 +135,30 @@ public class CameraXPreview extends CordovaPlugin {
         return true;
     }
 
-    private boolean takePicture(int width, int height, int quality, String targetFileName, int orientation,
+    private boolean takePicture(int quality, String targetFileName, int orientation,
             CallbackContext callbackContext) {
-        try {
-            imageCapture.takePicture(getExecutor(),
-                    new ImageCapture.OnImageCapturedCallback() {
-                        @Override
-                        public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
-                            processImage(imageProxy, quality, targetFileName, callbackContext);
-                        }
+        cordova.getActivity().runOnUiThread(() -> {
+            imageCapture = setupImageCaptureUseCase();
+            cameraInstance = cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, imageCapture);
+            try {
+                imageCapture.takePicture(getExecutor(),
+                        new ImageCapture.OnImageCapturedCallback() {
+                            @Override
+                            public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
+                                processImage(imageProxy, quality, targetFileName, callbackContext);
+                            }
 
-                        @Override
-                        public void onError(@NonNull ImageCaptureException exception) {
-                            callbackContext.error(exception.getMessage());
-                        }
-                    });
-        } catch (Exception e) {
-            callbackContext.error(e.getMessage());
-        }
+                            @Override
+                            public void onError(@NonNull ImageCaptureException exception) {
+                                callbackContext.error(exception.getMessage());
+                            }
+                        });
+            } catch (Exception e) {
+                callbackContext.error(e.getMessage());
+            }
+        });
+
         return true;
-    }
-
-    private ContentValues prepareContentValues(String targetFileName) {
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, targetFileName);
-        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
-        return contentValues;
-    }
-
-    private ImageCapture.OutputFileOptions prepareOutputFileOptions(ContentValues contentValues) {
-        return new ImageCapture.OutputFileOptions.Builder(cordova.getActivity().getContentResolver(),
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                contentValues)
-                .build();
     }
 
     private Executor getExecutor() {
@@ -273,13 +264,11 @@ public class CameraXPreview extends CordovaPlugin {
         cordova.getActivity().addContentView(previewView, layoutParams);
     }
 
-    private void setupPreviewUseCaseAndInitCameraInstance(CallbackContext callbackContext) {
+    private void setupUseCasesAndInitCameraInstance(CallbackContext callbackContext) {
         try {
-            ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+            cameraProvider = cameraProviderFuture.get();
             cameraSelector = setupCameraSelectorUseCase();
             Preview preview = setupPreviewUseCase();
-
-            imageCapture = setupImageCaptureUseCase();
 
             // Create the Camera instance
             cameraInstance = cameraProvider.bindToLifecycle(
@@ -308,14 +297,36 @@ public class CameraXPreview extends CordovaPlugin {
     }
 
     private ImageCapture setupImageCaptureUseCase() {
-        Integer rotation = previewView.getDisplay().getRotation();
         ImageCapture.Builder builder = new ImageCapture.Builder();
 
-        builder.setTargetResolution(new Size(1200, 1600))
-                .setTargetRotation(rotation);
+        builder.setTargetResolution(new Size(1200, 1600));
         turnOffNoiseReduction(builder);
 
         return builder.build();
+    }
+
+    private int getRotation(int orientation) {
+        switch (orientation) {
+            case 90:
+                return Surface.ROTATION_90;
+            case 180:
+                return Surface.ROTATION_180;
+            case 270:
+                return Surface.ROTATION_270;
+            default:
+                return Surface.ROTATION_0;
+        }
+    }
+
+    private Size getOptimalSize(int orientation) {
+        if(isPortrait(orientation)) {
+            return new Size(1200, 1600);
+        }
+        return new Size(1600, 1200);
+    }
+
+    private boolean isPortrait(int orientation) {
+        return orientation == 0 || orientation == 180;
     }
 
     @SuppressLint("UnsafeOptInUsageError")
