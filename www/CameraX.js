@@ -42,7 +42,7 @@ CameraXPreview.switchCamera = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "switchCamera", []);
 };
 
-CameraXPreview.takePictureToFile = function (opts, onSuccess, onError) {
+CameraXPreview.takePictureWithCameraX = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};
     } else if (isFunction(opts)) {
@@ -71,7 +71,7 @@ CameraXPreview.takePictureToFile = function (opts, onSuccess, onError) {
         onSuccess,
         onError,
         PLUGIN_NAME,
-        "takePictureToFile",
+        "takePictureWithCameraX",
         [
             opts.width,
             opts.height,

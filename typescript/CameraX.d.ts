@@ -39,7 +39,7 @@ interface CameraXPreview {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
-    takePicture(
+    takePictureWithCameraX(
         options?: CameraPreviewTakePictureOptions | CameraPreviewSuccessHandler,
         onSuccess?: CameraPreviewSuccessHandler | CameraPreviewErrorHandler,
         onError?: CameraPreviewErrorHandler

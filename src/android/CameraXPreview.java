@@ -1,16 +1,24 @@
 package com.cordovaplugincamerax;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.content.ContentValues;
+import android.hardware.camera2.CaptureRequest;
+import android.provider.MediaStore;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.camera.camera2.interop.Camera2Interop;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
@@ -28,6 +36,7 @@ public class CameraXPreview extends CordovaPlugin {
     private static final String TAG = "CameraXPreview";
     private static final String START_CAMERA_ACTION = "startCameraX";
     private static final String STOP_CAMERA_ACTION = "stopCameraX";
+    private static final String TAKE_PICTURE_ACTION = "takePictureWithCameraX";
     
     private static final int CAM_REQ_CODE = 0;
 
@@ -63,6 +72,13 @@ public class CameraXPreview extends CordovaPlugin {
             }
         } else if(STOP_CAMERA_ACTION.equals(action)) {
             return stopCameraX(callbackContext);
+        } else if(TAKE_PICTURE_ACTION.equals(action)) {
+            return takePicture(args.getInt(0),
+                    args.getInt(1),
+                    args.getInt(2),
+                    args.getString(3),
+                    args.getInt(4),
+                    callbackContext);
         }
         return false;
     }
@@ -100,6 +116,35 @@ public class CameraXPreview extends CordovaPlugin {
 
                 callbackContext.success();
             }, ContextCompat.getMainExecutor(cordova.getContext()));
+        }
+        return true;
+    }
+
+    private boolean takePicture(int width, int height, int quality, String targetFileName, int orientation, CallbackContext callbackContext) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, targetFileName);
+        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg");
+        try {
+            imageCapture.takePicture(
+                    new ImageCapture.OutputFileOptions.Builder(
+                            cordova.getActivity().getContentResolver(),
+                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                            contentValues
+                    ).build(),
+                    ContextCompat.getMainExecutor(cordova.getContext()),
+                    new ImageCapture.OnImageSavedCallback() {
+                        @Override
+                        public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                            Toast.makeText(cordova.getActivity(), "Saving...",Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void onError(@NonNull ImageCaptureException exception) {
+                            Toast.makeText(cordova.getActivity(),"Error: "+exception.getMessage(),Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         return true;
     }
@@ -144,12 +189,25 @@ public class CameraXPreview extends CordovaPlugin {
                     cordova.getActivity(), cameraSelector, preview);
 
             // Set up the ImageCapture use case
-            this.imageCapture = new ImageCapture.Builder().build();
+            ImageCapture.Builder builder = new ImageCapture.Builder();
+            builder.setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    .setTargetRotation(this.previewView.getDisplay().getRotation());
+            turnOffNoiseReduction(builder);
+
+            this.imageCapture = builder.build();
             callbackContext.success();
         } catch (ExecutionException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
             callbackContext.error("Failed to start the camera: " + e.getMessage());
         }
+    }
+    
+    @SuppressLint("UnsafeOptInUsageError")
+    private void turnOffNoiseReduction(ImageCapture.Builder builder) {
+        Camera2Interop.Extender extender = new Camera2Interop.Extender(builder);
+        extender.setCaptureRequestOption(
+                CaptureRequest.NOISE_REDUCTION_MODE,
+                CaptureRequest.NOISE_REDUCTION_MODE_OFF);
     }
 }
