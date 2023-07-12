@@ -17,12 +17,12 @@ interface CameraPreviewStartCameraXOptions {
 type CameraPreviewCameraDirection = "back" | "front";
 
 interface CameraXPreview {
-    startCamera(
+    startCameraX(
         options?: CameraPreviewStartCameraXOptions,
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
-    stopCamera(
+    stopCameraX(
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;

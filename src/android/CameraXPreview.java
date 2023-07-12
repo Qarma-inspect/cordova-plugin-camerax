@@ -1,10 +1,11 @@
 package com.cordovaplugincamerax;
 
 import android.Manifest;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
+import android.util.TypedValue;
 import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.widget.RelativeLayout;
 
 import androidx.camera.core.Camera;
@@ -26,6 +27,8 @@ import java.util.concurrent.ExecutionException;
 public class CameraXPreview extends CordovaPlugin {
     private static final String TAG = "CameraXPreview";
     private static final String START_CAMERA_ACTION = "startCameraX";
+    private static final String STOP_CAMERA_ACTION = "stopCameraX";
+    
     private static final int CAM_REQ_CODE = 0;
 
     private static final String[] permissions = {
@@ -58,6 +61,8 @@ public class CameraXPreview extends CordovaPlugin {
                 this.execArgs = args;
                 cordova.requestPermissions(this, CAM_REQ_CODE, permissions);
             }
+        } else if(STOP_CAMERA_ACTION.equals(action)) {
+            return stopCameraX(callbackContext);
         }
         return false;
     }
@@ -75,11 +80,45 @@ public class CameraXPreview extends CordovaPlugin {
         return true;
     }
 
+    private boolean stopCameraX(CallbackContext callbackContext) {
+        if (camera != null) {
+            cameraProviderFuture.addListener(() -> {
+                try {
+                    cameraProviderFuture.get().unbindAll();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                camera = null;
+
+                // Remove the dynamic PreviewView from the Cordova activity's layout
+                ViewGroup parentView = (ViewGroup) this.previewView.getParent();
+                if (parentView != null) {
+                    parentView.removeView(this.previewView);
+                }
+
+                callbackContext.success();
+            }, ContextCompat.getMainExecutor(cordova.getContext()));
+        }
+        return true;
+    }
+
     private void setupPreviewView(int x, int y, int width, int height) {
         this.previewView = new PreviewView(cordova.getActivity());
-        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(1080, 1440);
-        layoutParams.leftMargin = x;
-        layoutParams.topMargin = y;
+
+        DisplayMetrics metrics = cordova.getActivity().getResources().getDisplayMetrics();
+        // offset
+        int computedX = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, x, metrics);
+        int computedY = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, y, metrics);
+
+        // size
+        int computedWidth = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, width, metrics);
+        int computedHeight = (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, height, metrics);
+
+        RelativeLayout.LayoutParams layoutParams = new RelativeLayout.LayoutParams(computedWidth, computedHeight);
+        layoutParams.leftMargin = computedX;
+        layoutParams.topMargin = computedY;
         this.previewView.setLayoutParams(layoutParams);
         cordova.getActivity().addContentView(this.previewView, layoutParams);
     }

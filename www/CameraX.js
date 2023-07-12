@@ -34,7 +34,7 @@ CameraXPreview.startCameraX = function (options, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "startCameraX", [options.x, options.y, options.width, options.height, options.camera, options.tapPhoto, options.previewDrag, options.toBack, options.alpha, options.tapFocus]);
 };
 
-CameraXPreview.stopCamera = function (onSuccess, onError) {
+CameraXPreview.stopCameraX = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopCamera", []);
 };
 
