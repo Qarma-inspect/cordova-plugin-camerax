@@ -35,7 +35,7 @@ CameraXPreview.startCameraX = function (options, onSuccess, onError) {
 };
 
 CameraXPreview.stopCameraX = function (onSuccess, onError) {
-    exec(onSuccess, onError, PLUGIN_NAME, "stopCamera", []);
+    exec(onSuccess, onError, PLUGIN_NAME, "stopCameraX", []);
 };
 
 CameraXPreview.switchCamera = function (onSuccess, onError) {
