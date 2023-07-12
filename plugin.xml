@@ -12,8 +12,8 @@
     <repo>https://github.com/Qarma-inspect/cordova-plugin-camerax</repo>
     <issue>https://github.com/Qarma-inspect/cordova-plugin-camerax/issues</issue>
 
-    <js-module src="www/CameraX.js" name="CameraX">
-        <clobbers target="CameraX" />
+    <js-module src="www/CameraX.js" name="CameraXPreview">
+        <clobbers target="CameraXPreview" />
     </js-module>
 
     <platform name="android">

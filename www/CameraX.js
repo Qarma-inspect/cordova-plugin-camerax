@@ -2,15 +2,15 @@ var argscheck = require('cordova/argscheck'),
     utils = require('cordova/utils'),
     exec = require('cordova/exec');
 
-var PLUGIN_NAME = "CameraX";
+var PLUGIN_NAME = "CameraXPreview";
 
-var CameraX = function () { };
+var CameraXPreview = function () { };
 
 function isFunction(obj) {
     return !!(obj && obj.constructor && obj.call && obj.apply);
 };
 
-CameraX.startCameraX = function (options, onSuccess, onError) {
+CameraXPreview.startCameraX = function (options, onSuccess, onError) {
     options = options || {};
     options.x = options.x || 0;
     options.y = options.y || 0;
@@ -34,15 +34,15 @@ CameraX.startCameraX = function (options, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "startCameraX", [options.x, options.y, options.width, options.height, options.camera, options.tapPhoto, options.previewDrag, options.toBack, options.alpha, options.tapFocus]);
 };
 
-CameraX.stopCamera = function (onSuccess, onError) {
+CameraXPreview.stopCamera = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopCamera", []);
 };
 
-CameraX.switchCamera = function (onSuccess, onError) {
+CameraXPreview.switchCamera = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "switchCamera", []);
 };
 
-CameraX.takePictureToFile = function (opts, onSuccess, onError) {
+CameraXPreview.takePictureToFile = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};
     } else if (isFunction(opts)) {
@@ -81,7 +81,7 @@ CameraX.takePictureToFile = function (opts, onSuccess, onError) {
         ]);
 };
 
-CameraX.startRecordVideo = function (opts, onSuccess, onError) {
+CameraXPreview.startRecordVideo = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};
     } else if (isFunction(opts)) {
@@ -103,8 +103,8 @@ CameraX.startRecordVideo = function (opts, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "startRecordVideo", [opts.fileName, opts.cameraDirection, opts.rotation, opts.width, opts.height, opts.quality, opts.withFlash]);
 };
 
-CameraX.stopRecordVideo = function (onSuccess, onError) {
+CameraXPreview.stopRecordVideo = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopRecordVideo");
 };
 
-module.exports = CameraX;
+module.exports = CameraXPreview;
