@@ -24,7 +24,7 @@ import org.json.JSONException;
 import java.util.concurrent.ExecutionException;
 
 public class CameraXPreview extends CordovaPlugin {
-    private static final String TAG = "CameraPreview";
+    private static final String TAG = "CameraXPreview";
     private static final String START_CAMERA_ACTION = "startCameraX";
     private static final int CAM_REQ_CODE = 0;
 

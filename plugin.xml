@@ -17,8 +17,6 @@
     </js-module>
 
     <platform name="android">
-        <source-file src="src/android/CameraXFragment.java"
-            target-dir="src/com/cordovaplugincamerax" />
         <source-file src="src/android/CameraXPreview.java" target-dir="src/com/cordovaplugincamerax" />
 
         <config-file target="res/xml/config.xml" parent="/*">
