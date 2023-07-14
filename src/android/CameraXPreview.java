@@ -2,19 +2,17 @@ package com.cordovaplugincamerax;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.ContentValues;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.hardware.camera2.CaptureRequest;
-import android.provider.MediaStore;
+import android.media.Image;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
-import android.view.Surface;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
@@ -23,15 +21,14 @@ import androidx.camera.camera2.interop.Camera2Interop;
 import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
-import androidx.camera.core.internal.utils.ImageUtil;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
-import androidx.exifinterface.media.ExifInterface;
 
 import com.cordovaplugincamerapreview.RectMathUtil;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -42,13 +39,13 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 
-import java.io.ByteArrayInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
-public class CameraXPreview extends CordovaPlugin {
+@ExperimentalGetImage public class CameraXPreview extends CordovaPlugin {
     private static final String TAG = "CameraXPreview";
     private static final String START_CAMERA_ACTION = "startCameraX";
     private static final String STOP_CAMERA_ACTION = "stopCameraX";
@@ -59,9 +56,6 @@ public class CameraXPreview extends CordovaPlugin {
     private static final String[] permissions = {
             Manifest.permission.CAMERA
     };
-
-    private CallbackContext execCallback;
-    private JSONArray execArgs;
 
     private PreviewView previewView;
     private Camera cameraInstance;
@@ -84,8 +78,6 @@ public class CameraXPreview extends CordovaPlugin {
                 return startCameraX(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3), args.getString(8),
                         callbackContext);
             } else {
-                this.execCallback = callbackContext;
-                this.execArgs = args;
                 cordova.requestPermissions(this, CAM_REQ_CODE, permissions);
             }
         } else if (STOP_CAMERA_ACTION.equals(action)) {
@@ -137,26 +129,22 @@ public class CameraXPreview extends CordovaPlugin {
 
     private boolean takePicture(int quality, String targetFileName, int orientation,
             CallbackContext callbackContext) {
-        cordova.getActivity().runOnUiThread(() -> {
-            imageCapture = setupImageCaptureUseCase();
-            cameraInstance = cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, imageCapture);
-            try {
-                imageCapture.takePicture(getExecutor(),
-                        new ImageCapture.OnImageCapturedCallback() {
-                            @Override
-                            public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
-                                processImage(imageProxy, quality, targetFileName, callbackContext);
-                            }
+        try {
+            imageCapture.takePicture(getExecutor(),
+                    new ImageCapture.OnImageCapturedCallback() {
+                        @Override
+                        public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
+                            processImage(imageProxy, quality, targetFileName, orientation, callbackContext);
+                        }
 
-                            @Override
-                            public void onError(@NonNull ImageCaptureException exception) {
-                                callbackContext.error(exception.getMessage());
-                            }
-                        });
-            } catch (Exception e) {
-                callbackContext.error(e.getMessage());
-            }
-        });
+                        @Override
+                        public void onError(@NonNull ImageCaptureException exception) {
+                            callbackContext.error(exception.getMessage());
+                        }
+                    });
+        } catch (Exception e) {
+            callbackContext.error(e.getMessage());
+        }
 
         return true;
     }
@@ -165,9 +153,9 @@ public class CameraXPreview extends CordovaPlugin {
         return ContextCompat.getMainExecutor(cordova.getContext());
     }
 
-    private void processImage(ImageProxy imageProxy, int quality, String targetFileName,
+    private void processImage(ImageProxy imageProxy, int quality, String targetFileName, int orientation,
             CallbackContext callbackContext) {
-        Bitmap outputImage = rotateAndReturnImage(imageProxy, callbackContext);
+        Bitmap outputImage = rotateAndReturnImage(imageProxy, orientation, callbackContext);
         saveBitmapToFile(outputImage, targetFileName, quality, callbackContext);
 
         Bitmap thumbnailImage = createThumbnailImage(outputImage);
@@ -178,37 +166,57 @@ public class CameraXPreview extends CordovaPlugin {
     }
 
     @SuppressLint("RestrictedApi")
-    private Bitmap rotateAndReturnImage(ImageProxy imageProxy, CallbackContext callbackContext) {
-        byte[] data = ImageUtil.jpegImageToJpegByteArray(imageProxy);
+    private Bitmap rotateAndReturnImage(ImageProxy imageProxy, int orientation, CallbackContext callbackContext) {
+        byte[] data = imageProxyToByteArray(imageProxy);
         Matrix matrix = new Matrix();
-        try {
-            ExifInterface exifInterface = new ExifInterface(new ByteArrayInputStream(data));
-            int rotation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION,
-                    ExifInterface.ORIENTATION_NORMAL);
-            int rotationInDegrees = exifToDegrees(rotation);
-
-            if (rotation != 0f) {
-                matrix.preRotate(rotationInDegrees);
-            }
-            Bitmap outputImage = BitmapFactory.decodeByteArray(data, 0, data.length);
-            return applyMatrix(outputImage, matrix);
-        } catch (IOException e) {
-            callbackContext.error(e.getMessage());
-        }
-        return null;
+        matrix.preRotate(getImageRotationAngle(orientation));
+        Bitmap bitmapImage = BitmapFactory.decodeByteArray(data, 0, data.length);
+        Bitmap outputImage = applyMatrix(bitmapImage, matrix);
+        return outputImage;
     }
 
-    private static int exifToDegrees(int exifOrientation) {
-        if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_90) {
-            return 90;
-        } else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_180) {
-            return 180;
-        } else if (exifOrientation == ExifInterface.ORIENTATION_ROTATE_270) {
-            return 270;
+    private float getImageRotationAngle(int orientation) {
+        // TODO Find a way to get the returned image in a correct rotation, so that we wont need to do post-processing
+        switch (orientation) {
+            case 0: // portrait-primary
+                return 90;
+            case 180: // portrait-secondary
+                return 270;
+            case 90: // landscape-primary
+                return 180;
+            default: // landscape-secondary
+                return 0;
         }
-        return 0;
     }
 
+    private byte[] imageProxyToByteArray(ImageProxy imageProxy) {
+        Image image = imageProxy.getImage();
+
+        Image.Plane[] planes = image.getPlanes();
+
+        // Calculate the total buffer size required
+        int bufferSize = 0;
+        for (Image.Plane plane : planes) {
+            bufferSize += plane.getBuffer().remaining();
+        }
+
+        byte[] byteArray = new byte[bufferSize];
+
+        // Copy the pixel data from each plane into the byte array
+        int offset = 0;
+        for (Image.Plane plane : planes) {
+            ByteBuffer buffer = plane.getBuffer();
+            int length = buffer.remaining();
+            buffer.get(byteArray, offset, length);
+            offset += length;
+        }
+
+        // Close the Image and ImageProxy
+        image.close();
+        imageProxy.close();
+
+        return byteArray;
+    }
     private void saveBitmapToFile(Bitmap bitmap, String fileName, Integer quality, CallbackContext callbackContext) {
         Context context = cordova.getContext();
         try {
@@ -270,9 +278,11 @@ public class CameraXPreview extends CordovaPlugin {
             cameraSelector = setupCameraSelectorUseCase();
             Preview preview = setupPreviewUseCase();
 
+            imageCapture = setupImageCaptureUseCase();
+
             // Create the Camera instance
             cameraInstance = cameraProvider.bindToLifecycle(
-                    cordova.getActivity(), cameraSelector, preview);
+                    cordova.getActivity(), cameraSelector, preview, imageCapture);
 
             callbackContext.success();
         } catch (ExecutionException e) {
@@ -297,36 +307,13 @@ public class CameraXPreview extends CordovaPlugin {
     }
 
     private ImageCapture setupImageCaptureUseCase() {
+
         ImageCapture.Builder builder = new ImageCapture.Builder();
 
         builder.setTargetResolution(new Size(1200, 1600));
         turnOffNoiseReduction(builder);
 
         return builder.build();
-    }
-
-    private int getRotation(int orientation) {
-        switch (orientation) {
-            case 90:
-                return Surface.ROTATION_90;
-            case 180:
-                return Surface.ROTATION_180;
-            case 270:
-                return Surface.ROTATION_270;
-            default:
-                return Surface.ROTATION_0;
-        }
-    }
-
-    private Size getOptimalSize(int orientation) {
-        if(isPortrait(orientation)) {
-            return new Size(1200, 1600);
-        }
-        return new Size(1600, 1200);
-    }
-
-    private boolean isPortrait(int orientation) {
-        return orientation == 0 || orientation == 180;
     }
 
     @SuppressLint("UnsafeOptInUsageError")
