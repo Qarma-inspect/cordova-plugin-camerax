@@ -40,7 +40,7 @@ interface CameraXPreview {
         onError?: CameraPreviewErrorHandler
     ): void;
     setFlashModeCameraX(
-        mode: number,
+        mode: string,
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
