@@ -204,6 +204,7 @@ import java.util.concurrent.Executor;
         }
         int mode = getFlashModeAsInteger(flashMode);
         imageCapture.setFlashMode(mode);
+        callbackContext.success();
         return true;
     }
 
