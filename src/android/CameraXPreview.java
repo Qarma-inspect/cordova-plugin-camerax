@@ -13,6 +13,9 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
@@ -51,6 +54,8 @@ import java.util.concurrent.Executor;
     private static final String STOP_CAMERA_ACTION = "stopCameraX";
     private static final String TAKE_PICTURE_ACTION = "takePictureWithCameraX";
 
+    private static final String SET_ZOOM = "setZoomCameraX";
+
     private static final int CAM_REQ_CODE = 0;
 
     private static final String[] permissions = {
@@ -87,6 +92,8 @@ import java.util.concurrent.Executor;
                     args.getString(3),
                     args.getInt(4),
                     callbackContext);
+        } else if(SET_ZOOM.equals(action)) {
+            return setZoom((float) args.getDouble(0), callbackContext);
         }
         return false;
     }
@@ -146,6 +153,15 @@ import java.util.concurrent.Executor;
             callbackContext.error(e.getMessage());
         }
 
+        return true;
+    }
+
+    private boolean setZoom(float zoomRatio, CallbackContext callbackContext) {
+        if(cameraInstance == null) {
+            callbackContext.error("no camera instance");
+        }
+        cameraInstance.getCameraControl().setZoomRatio(zoomRatio);
+        callbackContext.success();
         return true;
     }
 
@@ -296,8 +312,27 @@ import java.util.concurrent.Executor;
         Preview preview = new Preview.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .build();
+        pinchToZoom();
         preview.setSurfaceProvider(this.previewView.getSurfaceProvider());
         return preview;
+    }
+
+    private void pinchToZoom() {
+        ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(cordova.getActivity(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                float scale = (float) (cameraInstance.getCameraInfo().getZoomState().getValue().getZoomRatio() * detector.getScaleFactor());
+                cameraInstance.getCameraControl().setZoomRatio(scale);
+                return true;
+            }
+        });
+        previewView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                scaleGestureDetector.onTouchEvent(event);
+                return true;
+            }
+        });
     }
 
     private CameraSelector setupCameraSelectorUseCase() {

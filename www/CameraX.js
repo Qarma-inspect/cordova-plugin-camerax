@@ -81,6 +81,10 @@ CameraXPreview.takePictureWithCameraX = function (opts, onSuccess, onError) {
         ]);
 };
 
+CameraXPreview.setZoomCameraX = function(zoom, onSuccess, onError) {
+    exec(onSuccess, onError, PLUGIN_NAME, "setZoomCameraX", [zoom]);
+};
+
 CameraXPreview.startRecordVideo = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};

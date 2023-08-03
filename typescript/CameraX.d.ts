@@ -26,6 +26,11 @@ interface CameraXPreview {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
+    setZoomCameraX(
+        zoomRatio: number,
+        onSuccess?: CameraPreviewSuccessHandler,
+        onError?: CameraPreviewErrorHandler
+    ): void;
     startRecordVideo(
         options?: any | CameraPreviewSuccessHandler,
         onSuccess?: CameraPreviewSuccessHandler | CameraPreviewErrorHandler,
