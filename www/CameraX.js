@@ -81,7 +81,7 @@ CameraXPreview.takePictureWithCameraX = function (opts, onSuccess, onError) {
         ]);
 };
 
-CameraPreview.getMaxZoomCameraX = function(onSuccess, onError) {
+CameraXPreview.getMaxZoomCameraX = function(onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "getMaxZoomCameraX", []);
 };
 
