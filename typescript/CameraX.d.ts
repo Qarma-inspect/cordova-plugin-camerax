@@ -35,6 +35,15 @@ interface CameraXPreview {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
+    getFlashModeCameraX(
+        onSuccess?: CameraPreviewSuccessHandler,
+        onError?: CameraPreviewErrorHandler
+    ): void;
+    setFlashModeCameraX(
+        mode: number,
+        onSuccess?: CameraPreviewSuccessHandler,
+        onError?: CameraPreviewErrorHandler
+    ): void;
     startRecordVideo(
         options?: any | CameraPreviewSuccessHandler,
         onSuccess?: CameraPreviewSuccessHandler | CameraPreviewErrorHandler,

@@ -89,6 +89,14 @@ CameraXPreview.setZoomCameraX = function(zoom, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "setZoomCameraX", [zoom]);
 };
 
+CameraXPreview.getFlashModeCameraX = function(onSuccess, onError) {
+    exec(onSuccess, onError, PLUGIN_NAME, "getFlashModeCameraX", []);
+};
+
+CameraXPreview.setFlashModeCameraX = function(mode, onSuccess, onError) {
+    exec(onSuccess, onError, PLUGIN_NAME, "setFlashModeCameraX", [mode]);
+};
+
 CameraXPreview.startRecordVideo = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};

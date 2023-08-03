@@ -54,9 +54,13 @@ import java.util.concurrent.Executor;
     private static final String START_CAMERA_ACTION = "startCameraX";
     private static final String STOP_CAMERA_ACTION = "stopCameraX";
     private static final String TAKE_PICTURE_ACTION = "takePictureWithCameraX";
-    private static final String GET_MAX_ZOOM = "getMaxZoomCameraX";
+    private static final String GET_MAX_ZOOM_ACTION = "getMaxZoomCameraX";
 
-    private static final String SET_ZOOM = "setZoomCameraX";
+    private static final String SET_ZOOM_ACTION = "setZoomCameraX";
+
+    private static final String GET_FLASH_MODE_ACTION = "getFlashModeCameraX";
+
+    private static final String SET_FLASH_MODE_ACTION = "setFlashModeCameraX";
 
     private static final int CAM_REQ_CODE = 0;
 
@@ -94,10 +98,14 @@ import java.util.concurrent.Executor;
                     args.getString(3),
                     args.getInt(4),
                     callbackContext);
-        } else if(SET_ZOOM.equals(action)) {
+        } else if(SET_ZOOM_ACTION.equals(action)) {
             return setZoom((float) args.getDouble(0), callbackContext);
-        } else if(GET_MAX_ZOOM.equals(action)) {
+        } else if(GET_MAX_ZOOM_ACTION.equals(action)) {
             return getMaxZoom(callbackContext);
+        } else if(GET_FLASH_MODE_ACTION.equals(action)) {
+            return getFlashMode(callbackContext);
+        } else if(SET_FLASH_MODE_ACTION.equals(action)) {
+            return setFlashMode(args.getInt(0), callbackContext);
         }
         return false;
     }
@@ -177,6 +185,24 @@ import java.util.concurrent.Executor;
         float zoomRatio = cameraInstance.getCameraInfo().getZoomState().getValue().getMaxZoomRatio();
         PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, zoomRatio);
         callbackContext.sendPluginResult(pluginResult);
+        return true;
+    }
+
+    private boolean getFlashMode(CallbackContext callbackContext) {
+        if(imageCapture == null) {
+            callbackContext.error("no camera instance");
+        }
+        int mode = imageCapture.getFlashMode();
+        PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, mode);
+        callbackContext.sendPluginResult(pluginResult);
+        return true;
+    }
+
+    private boolean setFlashMode(int mode, CallbackContext callbackContext) {
+        if(imageCapture == null) {
+            callbackContext.error("no camera instance");
+        }
+        imageCapture.setFlashMode(mode);
         return true;
     }
 
