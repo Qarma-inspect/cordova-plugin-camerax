@@ -26,6 +26,10 @@ interface CameraXPreview {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
+    getMaxZoomCameraX(
+        onSuccess?: CameraPreviewSuccessHandler,
+        onError?: CameraPreviewErrorHandler
+    ): void;
     setZoomCameraX(
         zoomRatio: number,
         onSuccess?: CameraPreviewSuccessHandler,

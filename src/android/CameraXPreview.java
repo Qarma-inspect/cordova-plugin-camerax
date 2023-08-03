@@ -53,6 +53,7 @@ import java.util.concurrent.Executor;
     private static final String START_CAMERA_ACTION = "startCameraX";
     private static final String STOP_CAMERA_ACTION = "stopCameraX";
     private static final String TAKE_PICTURE_ACTION = "takePictureWithCameraX";
+    private static final String GET_MAX_ZOOM = "getMaxZoomCameraX";
 
     private static final String SET_ZOOM = "setZoomCameraX";
 
@@ -94,6 +95,8 @@ import java.util.concurrent.Executor;
                     callbackContext);
         } else if(SET_ZOOM.equals(action)) {
             return setZoom((float) args.getDouble(0), callbackContext);
+        } else if(GET_MAX_ZOOM.equals(action)) {
+            return getMaxZoom(callbackContext);
         }
         return false;
     }
@@ -162,6 +165,16 @@ import java.util.concurrent.Executor;
         }
         cameraInstance.getCameraControl().setZoomRatio(zoomRatio);
         callbackContext.success();
+        return true;
+    }
+
+    private boolean getMaxZoom(CallbackContext callbackContext) {
+        if(cameraInstance == null) {
+            callbackContext.error("no camera instance");
+        }
+        float zoomRatio = cameraInstance.getCameraInfo().getZoomState().getValue().getMaxZoomRatio();
+        PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, zoomRatio);
+        callbackContext.sendPluginResult(pluginResult);
         return true;
     }
 
