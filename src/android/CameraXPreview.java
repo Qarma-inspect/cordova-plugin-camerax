@@ -105,7 +105,7 @@ import java.util.concurrent.Executor;
         } else if(GET_FLASH_MODE_ACTION.equals(action)) {
             return getFlashMode(callbackContext);
         } else if(SET_FLASH_MODE_ACTION.equals(action)) {
-            return setFlashMode(args.getInt(0), callbackContext);
+            return setFlashMode(args.getString(0), callbackContext);
         }
         return false;
     }
@@ -198,12 +198,24 @@ import java.util.concurrent.Executor;
         return true;
     }
 
-    private boolean setFlashMode(int mode, CallbackContext callbackContext) {
+    private boolean setFlashMode(String flashMode, CallbackContext callbackContext) {
         if(imageCapture == null) {
             callbackContext.error("no camera instance");
         }
+        int mode = getFlashModeAsInteger(flashMode);
         imageCapture.setFlashMode(mode);
         return true;
+    }
+
+    private int getFlashModeAsInteger(String flashMode) {
+        switch(flashMode) {
+            case "on":
+                return 1;
+            case "off":
+                return 2;
+            default:
+                return 0;
+        }
     }
 
     private Executor getExecutor() {
