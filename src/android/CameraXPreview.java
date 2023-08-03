@@ -9,6 +9,7 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.hardware.camera2.CaptureRequest;
 import android.media.Image;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
@@ -164,6 +165,7 @@ import java.util.concurrent.Executor;
             callbackContext.error("no camera instance");
         }
         cameraInstance.getCameraControl().setZoomRatio(zoomRatio);
+        notifyZoomRatioUpdate(zoomRatio);
         callbackContext.success();
         return true;
     }
@@ -336,6 +338,7 @@ import java.util.concurrent.Executor;
             public boolean onScale(ScaleGestureDetector detector) {
                 float scale = (float) (cameraInstance.getCameraInfo().getZoomState().getValue().getZoomRatio() * detector.getScaleFactor());
                 cameraInstance.getCameraControl().setZoomRatio(scale);
+                notifyZoomRatioUpdate(scale);
                 return true;
             }
         });
@@ -344,6 +347,16 @@ import java.util.concurrent.Executor;
             public boolean onTouch(View v, MotionEvent event) {
                 scaleGestureDetector.onTouchEvent(event);
                 return true;
+            }
+        });
+    }
+
+    private void notifyZoomRatioUpdate(float ratio) {
+        cordova.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                String statement = "cordova.fireDocumentEvent('zoomRatioUpdate', {ratio:'" + ratio + "'}, true);";
+                webView.loadUrl("javascript:" + statement);
             }
         });
     }
