@@ -369,13 +369,12 @@ import java.util.concurrent.Executor;
         Preview preview = new Preview.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .build();
-        pinchToZoom();
-        tapToFocus();
+        tapToFocusAndPinchToZoom();
         preview.setSurfaceProvider(this.previewView.getSurfaceProvider());
         return preview;
     }
 
-    private void pinchToZoom() {
+    private void tapToFocusAndPinchToZoom() {
         ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(cordova.getActivity(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override
             public boolean onScale(ScaleGestureDetector detector) {
@@ -388,20 +387,11 @@ import java.util.concurrent.Executor;
         previewView.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                scaleGestureDetector.onTouchEvent(event);
-                return true;
-            }
-        });
-    }
-
-    private void tapToFocus() {
-        previewView.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
                 if(event.getAction() == MotionEvent.ACTION_UP) {
                     triggerAutoFocusAndMetering(event.getX(), event.getY());
+                } else {
+                    scaleGestureDetector.onTouchEvent(event);
                 }
-
                 return true;
             }
         });
