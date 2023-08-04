@@ -9,7 +9,6 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.hardware.camera2.CaptureRequest;
 import android.media.Image;
-import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
@@ -24,11 +23,15 @@ import androidx.annotation.NonNull;
 import androidx.camera.camera2.interop.Camera2Interop;
 import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
+import androidx.camera.core.CameraControl;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
+import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
+import androidx.camera.core.MeteringPoint;
+import androidx.camera.core.MeteringPointFactory;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
@@ -367,6 +370,7 @@ import java.util.concurrent.Executor;
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .build();
         pinchToZoom();
+        tapToFocus();
         preview.setSurfaceProvider(this.previewView.getSurfaceProvider());
         return preview;
     }
@@ -385,6 +389,19 @@ import java.util.concurrent.Executor;
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 scaleGestureDetector.onTouchEvent(event);
+                return true;
+            }
+        });
+    }
+
+    private void tapToFocus() {
+        previewView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if(event.getAction() == MotionEvent.ACTION_UP) {
+                    triggerAutoFocusAndMetering(event.getX(), event.getY());
+                }
+
                 return true;
             }
         });
@@ -422,5 +439,14 @@ import java.util.concurrent.Executor;
         extender.setCaptureRequestOption(
                 CaptureRequest.NOISE_REDUCTION_MODE,
                 CaptureRequest.NOISE_REDUCTION_MODE_OFF);
+    }
+
+    private void triggerAutoFocusAndMetering(float x, float y) {
+        CameraControl cameraControl = cameraInstance.getCameraControl();
+
+        MeteringPointFactory factory = previewView.getMeteringPointFactory();
+        MeteringPoint point = factory.createPoint(x, y);
+        FocusMeteringAction action = new FocusMeteringAction.Builder(point).build();
+        cameraControl.startFocusAndMetering(action);
     }
 }
