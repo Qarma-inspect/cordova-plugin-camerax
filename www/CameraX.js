@@ -116,11 +116,11 @@ CameraXPreview.startRecordVideo = function (opts, onSuccess, onError) {
         opts.quality = 85;
     }
 
-    exec(onSuccess, onError, PLUGIN_NAME, "startRecordVideo", [opts.fileName, opts.cameraDirection, opts.rotation, opts.width, opts.height, opts.quality, opts.withFlash]);
+    exec(onSuccess, onError, PLUGIN_NAME, "startRecordingCameraX", [opts.fileName, opts.cameraDirection, opts.rotation, opts.width, opts.height, opts.quality, opts.withFlash]);
 };
 
 CameraXPreview.stopRecordVideo = function (onSuccess, onError) {
-    exec(onSuccess, onError, PLUGIN_NAME, "stopRecordVideo");
+    exec(onSuccess, onError, PLUGIN_NAME, "stopRecordingCameraX");
 };
 
 module.exports = CameraXPreview;

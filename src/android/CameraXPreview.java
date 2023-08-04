@@ -33,7 +33,9 @@ import androidx.camera.core.ImageProxy;
 import androidx.camera.core.MeteringPoint;
 import androidx.camera.core.MeteringPointFactory;
 import androidx.camera.core.Preview;
+import androidx.camera.core.VideoCapture;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.video.Recorder;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 
@@ -46,6 +48,7 @@ import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -64,6 +67,10 @@ import java.util.concurrent.Executor;
     private static final String GET_FLASH_MODE_ACTION = "getFlashModeCameraX";
 
     private static final String SET_FLASH_MODE_ACTION = "setFlashModeCameraX";
+
+    private static final String START_RECORDING_ACTION = "startRecordingCameraX";
+
+    private static final String STOP_RECORDING_ACTION = "startRecordingCameraX";
 
     private static final int CAM_REQ_CODE = 0;
 
@@ -109,6 +116,10 @@ import java.util.concurrent.Executor;
             return getFlashMode(callbackContext);
         } else if(SET_FLASH_MODE_ACTION.equals(action)) {
             return setFlashMode(args.getString(0), callbackContext);
+        } else if(START_RECORDING_ACTION.equals(action)) {
+            return startRecording(callbackContext);
+        } else if(STOP_RECORDING_ACTION.equals(action)) {
+            return stopRecording(callbackContext);
         }
         return false;
     }
@@ -220,6 +231,16 @@ import java.util.concurrent.Executor;
             default:
                 return 0;
         }
+    }
+
+    private boolean startRecording(CallbackContext callbackContext) {
+        //TODO implement later
+        return true;
+    }
+
+    private boolean stopRecording(CallbackContext callbackContext) {
+        //TODO implement later
+        return true;
     }
 
     private Executor getExecutor() {
