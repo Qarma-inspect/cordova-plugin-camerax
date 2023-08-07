@@ -39,7 +39,7 @@
         <framework src="androidx.camera:camera-camera2:$CAMERAX_VERSION" />
         <framework src="androidx.camera:camera-lifecycle:$CAMERAX_VERSION" />
         <framework src="androidx.camera:camera-view:1.0.0-alpha25" />
-        <framework src="androidx.camera:camera-video:1.2.3" />
+        <framework src="androidx.camera:camera-video:$CAMERAX_VERSION" />
         
     </platform>
 </plugin>
