@@ -33,9 +33,12 @@ import androidx.camera.core.ImageProxy;
 import androidx.camera.core.MeteringPoint;
 import androidx.camera.core.MeteringPointFactory;
 import androidx.camera.core.Preview;
-import androidx.camera.core.VideoCapture;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.video.FallbackStrategy;
+import androidx.camera.video.Quality;
+import androidx.camera.video.QualitySelector;
 import androidx.camera.video.Recorder;
+import androidx.camera.video.VideoCapture;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 
@@ -81,6 +84,8 @@ import java.util.concurrent.Executor;
     private PreviewView previewView;
     private Camera cameraInstance;
     private ImageCapture imageCapture;
+
+    private VideoCapture<Recorder> videoCapture;
     private CameraSelector cameraSelector;
     private ProcessCameraProvider cameraProvider;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
@@ -374,9 +379,11 @@ import java.util.concurrent.Executor;
 
             imageCapture = setupImageCaptureUseCase();
 
+            videoCapture = setupVideoCaptureUseCase();
+
             // Create the Camera instance
             cameraInstance = cameraProvider.bindToLifecycle(
-                    cordova.getActivity(), cameraSelector, preview, imageCapture);
+                    cordova.getActivity(), cameraSelector, preview, imageCapture, videoCapture);
 
             callbackContext.success();
         } catch (ExecutionException e) {
@@ -459,5 +466,14 @@ import java.util.concurrent.Executor;
         MeteringPoint point = factory.createPoint(x, y);
         FocusMeteringAction action = new FocusMeteringAction.Builder(point).build();
         cameraControl.startFocusAndMetering(action);
+    }
+
+    private VideoCapture<Recorder> setupVideoCaptureUseCase() {
+        QualitySelector qualitySelector = QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD));
+        Recorder recorder = new Recorder.Builder()
+                .setExecutor(getExecutor())
+                .setQualitySelector(qualitySelector)
+                .build();
+        return VideoCapture.withOutput(recorder);
     }
 }

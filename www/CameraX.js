@@ -97,7 +97,7 @@ CameraXPreview.setFlashModeCameraX = function(mode, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "setFlashModeCameraX", [mode]);
 };
 
-CameraXPreview.startRecordVideo = function (opts, onSuccess, onError) {
+CameraXPreview.startRecordingCameraX = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};
     } else if (isFunction(opts)) {
@@ -119,7 +119,7 @@ CameraXPreview.startRecordVideo = function (opts, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "startRecordingCameraX", [opts.fileName, opts.cameraDirection, opts.rotation, opts.width, opts.height, opts.quality, opts.withFlash]);
 };
 
-CameraXPreview.stopRecordVideo = function (onSuccess, onError) {
+CameraXPreview.stopRecordingCameraX = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopRecordingCameraX");
 };
 
