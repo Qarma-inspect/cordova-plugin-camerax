@@ -3,6 +3,7 @@ package com.cordovaplugincamerax;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -35,11 +36,15 @@ import androidx.camera.core.MeteringPointFactory;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.video.FallbackStrategy;
+import androidx.camera.video.FileOutputOptions;
 import androidx.camera.video.Quality;
 import androidx.camera.video.QualitySelector;
 import androidx.camera.video.Recorder;
+import androidx.camera.video.Recording;
 import androidx.camera.video.VideoCapture;
+import androidx.camera.video.VideoRecordEvent;
 import androidx.camera.view.PreviewView;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.cordovaplugincamerapreview.RectMathUtil;
@@ -52,13 +57,17 @@ import org.json.JSONArray;
 import org.json.JSONException;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
-@ExperimentalGetImage public class CameraXPreview extends CordovaPlugin {
+@ExperimentalGetImage
+public class CameraXPreview extends CordovaPlugin {
     private static final String TAG = "CameraXPreview";
     private static final String START_CAMERA_ACTION = "startCameraX";
     private static final String STOP_CAMERA_ACTION = "stopCameraX";
@@ -73,7 +82,7 @@ import java.util.concurrent.Executor;
 
     private static final String START_RECORDING_ACTION = "startRecordingCameraX";
 
-    private static final String STOP_RECORDING_ACTION = "startRecordingCameraX";
+    private static final String STOP_RECORDING_ACTION = "stopRecordingCameraX";
 
     private static final int CAM_REQ_CODE = 0;
 
@@ -86,9 +95,14 @@ import java.util.concurrent.Executor;
     private ImageCapture imageCapture;
 
     private VideoCapture<Recorder> videoCapture;
+    private Recording recording;
+
+    private String recordFilePath;
     private CameraSelector cameraSelector;
     private ProcessCameraProvider cameraProvider;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+
+    private boolean recordingStoppedByUser = false;
 
     public CameraXPreview() {
         super();
@@ -113,17 +127,17 @@ import java.util.concurrent.Executor;
                     args.getString(3),
                     args.getInt(4),
                     callbackContext);
-        } else if(SET_ZOOM_ACTION.equals(action)) {
+        } else if (SET_ZOOM_ACTION.equals(action)) {
             return setZoom((float) args.getDouble(0), callbackContext);
-        } else if(GET_MAX_ZOOM_ACTION.equals(action)) {
+        } else if (GET_MAX_ZOOM_ACTION.equals(action)) {
             return getMaxZoom(callbackContext);
-        } else if(GET_FLASH_MODE_ACTION.equals(action)) {
+        } else if (GET_FLASH_MODE_ACTION.equals(action)) {
             return getFlashMode(callbackContext);
-        } else if(SET_FLASH_MODE_ACTION.equals(action)) {
+        } else if (SET_FLASH_MODE_ACTION.equals(action)) {
             return setFlashMode(args.getString(0), callbackContext);
-        } else if(START_RECORDING_ACTION.equals(action)) {
-            return startRecording(callbackContext);
-        } else if(STOP_RECORDING_ACTION.equals(action)) {
+        } else if (START_RECORDING_ACTION.equals(action)) {
+            return startRecording(args.getString(0), args.getInt(1), callbackContext);
+        } else if (STOP_RECORDING_ACTION.equals(action)) {
             return stopRecording(callbackContext);
         }
         return false;
@@ -166,7 +180,7 @@ import java.util.concurrent.Executor;
     }
 
     private boolean takePicture(int quality, String targetFileName, int orientation,
-            CallbackContext callbackContext) {
+                                CallbackContext callbackContext) {
         try {
             imageCapture.takePicture(getExecutor(),
                     new ImageCapture.OnImageCapturedCallback() {
@@ -188,7 +202,7 @@ import java.util.concurrent.Executor;
     }
 
     private boolean setZoom(float zoomRatio, CallbackContext callbackContext) {
-        if(cameraInstance == null) {
+        if (cameraInstance == null) {
             callbackContext.error("no camera instance");
         }
         cameraInstance.getCameraControl().setZoomRatio(zoomRatio);
@@ -198,7 +212,7 @@ import java.util.concurrent.Executor;
     }
 
     private boolean getMaxZoom(CallbackContext callbackContext) {
-        if(cameraInstance == null) {
+        if (cameraInstance == null) {
             callbackContext.error("no camera instance");
         }
         float zoomRatio = cameraInstance.getCameraInfo().getZoomState().getValue().getMaxZoomRatio();
@@ -208,7 +222,7 @@ import java.util.concurrent.Executor;
     }
 
     private boolean getFlashMode(CallbackContext callbackContext) {
-        if(imageCapture == null) {
+        if (imageCapture == null) {
             callbackContext.error("no camera instance");
         }
         int mode = imageCapture.getFlashMode();
@@ -218,7 +232,7 @@ import java.util.concurrent.Executor;
     }
 
     private boolean setFlashMode(String flashMode, CallbackContext callbackContext) {
-        if(imageCapture == null) {
+        if (imageCapture == null) {
             callbackContext.error("no camera instance");
         }
         int mode = getFlashModeAsInteger(flashMode);
@@ -228,7 +242,7 @@ import java.util.concurrent.Executor;
     }
 
     private int getFlashModeAsInteger(String flashMode) {
-        switch(flashMode) {
+        switch (flashMode) {
             case "on":
                 return 1;
             case "off":
@@ -238,14 +252,75 @@ import java.util.concurrent.Executor;
         }
     }
 
-    private boolean startRecording(CallbackContext callbackContext) {
-        //TODO implement later
+    private boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
+        recordingStoppedByUser = false;
+        recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
+
+        try {
+            File newFile = new File(recordFilePath);
+            newFile.createNewFile();
+            FileOutputOptions options = new FileOutputOptions.Builder(newFile)
+                    .build();
+
+            if (ActivityCompat.checkSelfPermission(cordova.getActivity(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                callbackContext.error("Permission not allowed");
+                return false;
+            }
+            recording = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
+                    .withAudioEnabled()
+                    .start(getExecutor(), videoRecordEvent ->  {
+                        if(videoRecordEvent instanceof VideoRecordEvent.Start) {
+                            stopRecordingAfterMilliseconds((durationLimit + 1) * 1000);
+                            callbackContext.success();
+                        }
+                        if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
+                            notifyRecordedVideoPath((VideoRecordEvent.Finalize) videoRecordEvent);
+                        }
+                    });
+
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (Exception e) {
+            callbackContext.error(e.getMessage());
+        }
         return true;
     }
 
+    private void stopRecordingAfterMilliseconds(long milliseconds) {
+        delayInMilliseconds(() -> {
+            if(recording != null) {
+                recording.stop();
+            }
+        }, milliseconds);
+    }
+
+    private void notifyRecordedVideoPath(VideoRecordEvent.Finalize event) {
+        cordova.getActivity().runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if(!recordingStoppedByUser) {
+                    String filePath = event.getOutputResults().getOutputUri().toString();
+                    webView.loadUrl("javascript:" + "cordova.fireDocumentEvent('videoRecorderUpdate', {filePath: '"+ filePath + "' }, true);");
+                }
+            }
+        });
+    }
     private boolean stopRecording(CallbackContext callbackContext) {
-        //TODO implement later
+        recordingStoppedByUser = true;
+        recording.stop();
+        recording = null;
+        PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, recordFilePath);
+        delayInMilliseconds(() -> callbackContext.sendPluginResult(pluginResult), 1000);
         return true;
+    }
+
+    private void delayInMilliseconds(Runnable runnable, long duration) {
+        new Timer().schedule(new TimerTask() {
+            @Override
+            public void run() {
+                runnable.run();
+            }
+        }, duration);
     }
 
     private Executor getExecutor() {

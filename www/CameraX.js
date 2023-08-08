@@ -116,7 +116,11 @@ CameraXPreview.startRecordingCameraX = function (opts, onSuccess, onError) {
         opts.quality = 85;
     }
 
-    exec(onSuccess, onError, PLUGIN_NAME, "startRecordingCameraX", [opts.fileName, opts.cameraDirection, opts.rotation, opts.width, opts.height, opts.quality, opts.withFlash]);
+    if(!opts.durationLimit) {
+        opts.durationLimit = 12;
+    }
+
+    exec(onSuccess, onError, PLUGIN_NAME, "startRecordingCameraX", [opts.fileName, opts.durationLimit]);
 };
 
 CameraXPreview.stopRecordingCameraX = function (onSuccess, onError) {
