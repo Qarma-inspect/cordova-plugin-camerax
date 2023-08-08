@@ -11,7 +11,7 @@
         cordova,phonegap,ecosystem:cordova,cordova-android,cordova-ios,android,ios,ionic,camerax,cam,camera-preview,preview</keywords>
     <repo>https://github.com/Qarma-inspect/cordova-plugin-camerax</repo>
     <issue>https://github.com/Qarma-inspect/cordova-plugin-camerax/issues</issue>
-    <preference name="CAMERAX_VERSION" default="1.3.0-beta02"/>
+    <preference name="CAMERAX_VERSION" default="1.2.3"/>
 
     <js-module src="www/CameraX.js" name="CameraXPreview">
         <clobbers target="CameraXPreview" />
