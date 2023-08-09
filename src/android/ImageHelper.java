@@ -10,9 +10,11 @@ import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageProxy;
 import com.cordovaplugincamerapreview.RectMathUtil;
 import java.nio.ByteBuffer;
+
 @ExperimentalGetImage
 public class ImageHelper {
-    public ImageHelper() {}
+    public ImageHelper() {
+    }
 
     public Bitmap rotateAndReturnImage(ImageProxy imageProxy, int orientation) {
         byte[] data = imageProxyToByteArray(imageProxy);
@@ -28,10 +30,11 @@ public class ImageHelper {
                 scaledRect.height());
         return Bitmap.createScaledBitmap(partOfImage, 200, 200, true);
     }
+
     @SuppressLint("RestrictedApi")
     private byte[] imageProxyToByteArray(ImageProxy imageProxy) {
         Image image = imageProxy.getImage();
-        if(image == null) {
+        if (image == null) {
             return new byte[0];
         }
 
@@ -60,8 +63,10 @@ public class ImageHelper {
 
         return byteArray;
     }
+
     private float getImageRotationAngle(int orientation) {
-        // TODO Find a way to get the returned image in a correct rotation, so that we wont need to do post-processing
+        // TODO Find a way to get the returned image in a correct rotation, so that we
+        // wont need to do post-processing
         switch (orientation) {
             case 0: // portrait-primary
                 return 90;
@@ -73,6 +78,7 @@ public class ImageHelper {
                 return 0;
         }
     }
+
     private Bitmap applyMatrix(Bitmap source, Matrix matrix) {
         return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
     }

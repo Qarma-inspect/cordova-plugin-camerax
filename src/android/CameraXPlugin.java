@@ -5,6 +5,7 @@ import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.json.JSONArray;
 import org.json.JSONException;
+
 @ExperimentalGetImage
 public class CameraXPlugin extends CordovaPlugin {
     private static final String START_CAMERA_ACTION = "startCameraX";
@@ -16,12 +17,14 @@ public class CameraXPlugin extends CordovaPlugin {
     private static final String SET_FLASH_MODE_ACTION = "setFlashModeCameraX";
     private static final String START_RECORDING_ACTION = "startRecordingCameraX";
     private static final String STOP_RECORDING_ACTION = "stopRecordingCameraX";
+
     public CameraXPlugin() {
         super();
     }
+
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
-        CameraHelper helper = new CameraHelper(cordova, webView, this);
+        CameraXHelper helper = new CameraXHelper(cordova, webView, this);
         switch (action) {
             case START_CAMERA_ACTION:
                 return helper.startCameraX(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3),

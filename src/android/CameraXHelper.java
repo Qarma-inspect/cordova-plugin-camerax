@@ -76,7 +76,9 @@ public class CameraXHelper {
     private static final String[] permissions = {
             Manifest.permission.CAMERA
     };
-    public CameraHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView, CordovaPlugin cordovaPlugin) {
+
+    public CameraXHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
+            CordovaPlugin cordovaPlugin) {
         cordova = cordovaInterface;
         webView = cordovaWebView;
         plugin = cordovaPlugin;
@@ -87,9 +89,8 @@ public class CameraXHelper {
             cordova.getActivity().runOnUiThread(() -> {
                 setupPreviewView(x, y, width, height);
                 cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
-                cameraProviderFuture.addListener(() ->
-                    setupUseCasesAndInitCameraInstance(callbackContext), ContextCompat.getMainExecutor(cordova.getContext())
-                );
+                cameraProviderFuture.addListener(() -> setupUseCasesAndInitCameraInstance(callbackContext),
+                        ContextCompat.getMainExecutor(cordova.getContext()));
             });
         } else {
             cordova.requestPermissions(plugin, CAM_REQ_CODE, permissions);
@@ -121,7 +122,7 @@ public class CameraXHelper {
     }
 
     public boolean takePicture(int quality, String targetFileName, int orientation,
-                                CallbackContext callbackContext) {
+            CallbackContext callbackContext) {
         try {
             imageCapture.takePicture(getExecutor(),
                     new ImageCapture.OnImageCapturedCallback() {
@@ -143,7 +144,7 @@ public class CameraXHelper {
     }
 
     private void processImage(ImageProxy imageProxy, int quality, String targetFileName, int orientation,
-                              CallbackContext callbackContext) {
+            CallbackContext callbackContext) {
         ImageHelper imageHelper = new ImageHelper();
         Bitmap outputImage = imageHelper.rotateAndReturnImage(imageProxy, orientation);
         saveBitmapToFile(outputImage, targetFileName, quality, callbackContext);
@@ -154,6 +155,7 @@ public class CameraXHelper {
 
         sendPluginResult(targetFileName, callbackContext);
     }
+
     private void saveBitmapToFile(Bitmap bitmap, String fileName, Integer quality, CallbackContext callbackContext) {
         Context context = cordova.getContext();
         try {
@@ -163,7 +165,6 @@ public class CameraXHelper {
             callbackContext.error(e.getMessage());
         }
     }
-
 
     private void sendPluginResult(String targetFileName, CallbackContext callbackContext) {
         JSONArray output = new JSONArray();
@@ -193,7 +194,7 @@ public class CameraXHelper {
             callbackContext.error("no camera instance");
         }
         ZoomState zoomState = cameraInstance.getCameraInfo().getZoomState().getValue();
-        if(zoomState != null) {
+        if (zoomState != null) {
             float zoomRatio = zoomState.getMaxZoomRatio();
             PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, zoomRatio);
             callbackContext.sendPluginResult(pluginResult);
@@ -234,6 +235,7 @@ public class CameraXHelper {
                 return 0;
         }
     }
+
     public boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
         recordingStoppedByUser = false;
         recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
@@ -243,14 +245,15 @@ public class CameraXHelper {
             FileOutputOptions options = new FileOutputOptions.Builder(newFile)
                     .build();
 
-            if (ActivityCompat.checkSelfPermission(cordova.getActivity(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(cordova.getActivity(),
+                    Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 callbackContext.error("Permission not allowed");
                 return false;
             }
             recording = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
                     .withAudioEnabled()
-                    .start(getExecutor(), videoRecordEvent ->  {
-                        if(videoRecordEvent instanceof VideoRecordEvent.Start) {
+                    .start(getExecutor(), videoRecordEvent -> {
+                        if (videoRecordEvent instanceof VideoRecordEvent.Start) {
                             stopRecordingAfterMilliseconds((durationLimit + 1) * 1000L);
                             callbackContext.success();
                         }
@@ -267,7 +270,7 @@ public class CameraXHelper {
 
     private void stopRecordingAfterMilliseconds(long milliseconds) {
         delayInMilliseconds(() -> {
-            if(recording != null) {
+            if (recording != null) {
                 recording.stop();
             }
         }, milliseconds);
@@ -275,12 +278,14 @@ public class CameraXHelper {
 
     private void notifyRecordedVideoPath(VideoRecordEvent.Finalize event) {
         cordova.getActivity().runOnUiThread(() -> {
-            if(!recordingStoppedByUser) {
+            if (!recordingStoppedByUser) {
                 String filePath = event.getOutputResults().getOutputUri().toString();
-                webView.loadUrl("javascript:" + "cordova.fireDocumentEvent('videoRecorderUpdate', {filePath: '"+ filePath + "' }, true);");
+                webView.loadUrl("javascript:" + "cordova.fireDocumentEvent('videoRecorderUpdate', {filePath: '"
+                        + filePath + "' }, true);");
             }
         });
     }
+
     public boolean stopRecording(CallbackContext callbackContext) {
         recordingStoppedByUser = true;
         recording.stop();
@@ -289,6 +294,7 @@ public class CameraXHelper {
         delayInMilliseconds(() -> callbackContext.sendPluginResult(pluginResult), 1000);
         return true;
     }
+
     private void delayInMilliseconds(Runnable runnable, long duration) {
         new Timer().schedule(new TimerTask() {
             @Override
@@ -297,6 +303,7 @@ public class CameraXHelper {
             }
         }, duration);
     }
+
     private void setupPreviewView(int x, int y, int width, int height) {
         previewView = new PreviewView(cordova.getActivity());
 
@@ -349,21 +356,22 @@ public class CameraXHelper {
 
     @SuppressLint("ClickableViewAccessibility")
     private void tapToFocusAndPinchToZoom() {
-        ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(cordova.getActivity(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            @Override
-            public boolean onScale(@NonNull ScaleGestureDetector detector) {
-                ZoomState zoomState = cameraInstance.getCameraInfo().getZoomState().getValue();
-                if(zoomState != null) {
-                    float scale = zoomState.getZoomRatio() * detector.getScaleFactor();
-                    cameraInstance.getCameraControl().setZoomRatio(scale);
-                    notifyZoomRatioUpdate(scale);
-                }
+        ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(cordova.getActivity(),
+                new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    @Override
+                    public boolean onScale(@NonNull ScaleGestureDetector detector) {
+                        ZoomState zoomState = cameraInstance.getCameraInfo().getZoomState().getValue();
+                        if (zoomState != null) {
+                            float scale = zoomState.getZoomRatio() * detector.getScaleFactor();
+                            cameraInstance.getCameraControl().setZoomRatio(scale);
+                            notifyZoomRatioUpdate(scale);
+                        }
 
-                return true;
-            }
-        });
+                        return true;
+                    }
+                });
         previewView.setOnTouchListener((v, event) -> {
-            if(event.getAction() == MotionEvent.ACTION_UP) {
+            if (event.getAction() == MotionEvent.ACTION_UP) {
                 triggerAutoFocusAndMetering(event.getX(), event.getY());
             } else {
                 scaleGestureDetector.onTouchEvent(event);
@@ -413,13 +421,15 @@ public class CameraXHelper {
     }
 
     private VideoCapture<Recorder> setupVideoCaptureUseCase() {
-        QualitySelector qualitySelector = QualitySelector.from(Quality.SD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD));
+        QualitySelector qualitySelector = QualitySelector.from(Quality.SD,
+                FallbackStrategy.lowerQualityOrHigherThan(Quality.SD));
         Recorder recorder = new Recorder.Builder()
                 .setExecutor(getExecutor())
                 .setQualitySelector(qualitySelector)
                 .build();
         return VideoCapture.withOutput(recorder);
     }
+
     private Executor getExecutor() {
         return ContextCompat.getMainExecutor(cordova.getContext());
     }
