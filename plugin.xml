@@ -18,11 +18,13 @@
     </js-module>
 
     <platform name="android">
-        <source-file src="src/android/CameraXPreview.java" target-dir="src/com/cordovaplugincamerax" />
+        <source-file src="src/android/CameraXPlugin.java" target-dir="src/com/cordovaplugincamerax" />
+        <source-file src="src/android/CameraXHelper.java" target-dir="src/com/cordovaplugincamerax" />
+        <source-file src="src/android/ImageHelper.java" target-dir="src/com/cordovaplugincamerax" />
 
         <config-file target="res/xml/config.xml" parent="/*">
-            <feature name="CameraXPreview">
-                <param name="android-package" value="com.cordovaplugincamerax.CameraXPreview" />
+            <feature name="CameraXPlugin">
+                <param name="android-package" value="com.cordovaplugincamerax.CameraXPlugin" />
                 <param name="onload" value="true" />
             </feature>
         </config-file>

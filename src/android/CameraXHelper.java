@@ -5,18 +5,12 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Matrix;
-import android.graphics.Rect;
 import android.hardware.camera2.CaptureRequest;
-import android.media.Image;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
@@ -34,6 +28,7 @@ import androidx.camera.core.ImageProxy;
 import androidx.camera.core.MeteringPoint;
 import androidx.camera.core.MeteringPointFactory;
 import androidx.camera.core.Preview;
+import androidx.camera.core.ZoomState;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.video.FallbackStrategy;
 import androidx.camera.video.FileOutputOptions;
@@ -46,124 +41,70 @@ import androidx.camera.video.VideoRecordEvent;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
-import com.cordovaplugincamerapreview.RectMathUtil;
 import com.google.common.util.concurrent.ListenableFuture;
-
 import org.apache.cordova.CallbackContext;
+import org.apache.cordova.CordovaInterface;
 import org.apache.cordova.CordovaPlugin;
+import org.apache.cordova.CordovaWebView;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
-import org.json.JSONException;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
 @ExperimentalGetImage
-public class CameraXPreview extends CordovaPlugin {
-    private static final String TAG = "CameraXPreview";
-    private static final String START_CAMERA_ACTION = "startCameraX";
-    private static final String STOP_CAMERA_ACTION = "stopCameraX";
-    private static final String TAKE_PICTURE_ACTION = "takePictureWithCameraX";
-    private static final String GET_MAX_ZOOM_ACTION = "getMaxZoomCameraX";
-
-    private static final String SET_ZOOM_ACTION = "setZoomCameraX";
-
-    private static final String GET_FLASH_MODE_ACTION = "getFlashModeCameraX";
-
-    private static final String SET_FLASH_MODE_ACTION = "setFlashModeCameraX";
-
-    private static final String START_RECORDING_ACTION = "startRecordingCameraX";
-
-    private static final String STOP_RECORDING_ACTION = "stopRecordingCameraX";
-
-    private static final int CAM_REQ_CODE = 0;
-
-    private static final String[] permissions = {
-            Manifest.permission.CAMERA
-    };
-
+public class CameraXHelper {
     private PreviewView previewView;
     private Camera cameraInstance;
     private ImageCapture imageCapture;
 
     private VideoCapture<Recorder> videoCapture;
     private Recording recording;
-
     private String recordFilePath;
-    private CameraSelector cameraSelector;
-    private ProcessCameraProvider cameraProvider;
+
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
-
     private boolean recordingStoppedByUser = false;
-
-    public CameraXPreview() {
-        super();
-        Log.d(TAG, "Constructing");
+    private final CordovaInterface cordova;
+    private final CordovaWebView webView;
+    private final CordovaPlugin plugin;
+    private static final int CAM_REQ_CODE = 0;
+    private static final String[] permissions = {
+            Manifest.permission.CAMERA
+    };
+    public CameraHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView, CordovaPlugin cordovaPlugin) {
+        cordova = cordovaInterface;
+        webView = cordovaWebView;
+        plugin = cordovaPlugin;
     }
 
-    @Override
-    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
-
-        Log.d(TAG, "Called CameraPreview plugin with action : " + action);
-        if (START_CAMERA_ACTION.equals(action)) {
-            if (cordova.hasPermission(permissions[0])) {
-                return startCameraX(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3), args.getString(8),
-                        callbackContext);
-            } else {
-                cordova.requestPermissions(this, CAM_REQ_CODE, permissions);
-            }
-        } else if (STOP_CAMERA_ACTION.equals(action)) {
-            return stopCameraX(callbackContext);
-        } else if (TAKE_PICTURE_ACTION.equals(action)) {
-            return takePicture(args.getInt(2),
-                    args.getString(3),
-                    args.getInt(4),
-                    callbackContext);
-        } else if (SET_ZOOM_ACTION.equals(action)) {
-            return setZoom((float) args.getDouble(0), callbackContext);
-        } else if (GET_MAX_ZOOM_ACTION.equals(action)) {
-            return getMaxZoom(callbackContext);
-        } else if (GET_FLASH_MODE_ACTION.equals(action)) {
-            return getFlashMode(callbackContext);
-        } else if (SET_FLASH_MODE_ACTION.equals(action)) {
-            return setFlashMode(args.getString(0), callbackContext);
-        } else if (START_RECORDING_ACTION.equals(action)) {
-            return startRecording(args.getString(0), args.getInt(1), callbackContext);
-        } else if (STOP_RECORDING_ACTION.equals(action)) {
-            return stopRecording(callbackContext);
+    public boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
+        if (cordova.hasPermission(permissions[0])) {
+            cordova.getActivity().runOnUiThread(() -> {
+                setupPreviewView(x, y, width, height);
+                cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
+                cameraProviderFuture.addListener(() ->
+                    setupUseCasesAndInitCameraInstance(callbackContext), ContextCompat.getMainExecutor(cordova.getContext())
+                );
+            });
+        } else {
+            cordova.requestPermissions(plugin, CAM_REQ_CODE, permissions);
         }
-        return false;
-    }
 
-    private boolean startCameraX(int x, int y, int width, int height, String alpha, CallbackContext callbackContext) {
-        cordova.getActivity().runOnUiThread(() -> {
-            setupPreviewView(x, y, width, height);
-
-            cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
-            cameraProviderFuture.addListener(() -> {
-                setupUseCasesAndInitCameraInstance(callbackContext);
-            }, ContextCompat.getMainExecutor(cordova.getContext()));
-        });
         return true;
     }
 
-    private boolean stopCameraX(CallbackContext callbackContext) {
+    public boolean stopCameraX(CallbackContext callbackContext) {
         if (cameraInstance != null) {
             cameraProviderFuture.addListener(() -> {
                 try {
                     cameraProviderFuture.get().unbindAll();
-                } catch (ExecutionException e) {
-                    e.printStackTrace();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                } catch (Exception e) {
+                    callbackContext.error(e.getMessage());
                 }
                 cameraInstance = null;
 
@@ -179,7 +120,7 @@ public class CameraXPreview extends CordovaPlugin {
         return true;
     }
 
-    private boolean takePicture(int quality, String targetFileName, int orientation,
+    public boolean takePicture(int quality, String targetFileName, int orientation,
                                 CallbackContext callbackContext) {
         try {
             imageCapture.takePicture(getExecutor(),
@@ -201,7 +142,43 @@ public class CameraXPreview extends CordovaPlugin {
         return true;
     }
 
-    private boolean setZoom(float zoomRatio, CallbackContext callbackContext) {
+    private void processImage(ImageProxy imageProxy, int quality, String targetFileName, int orientation,
+                              CallbackContext callbackContext) {
+        ImageHelper imageHelper = new ImageHelper();
+        Bitmap outputImage = imageHelper.rotateAndReturnImage(imageProxy, orientation);
+        saveBitmapToFile(outputImage, targetFileName, quality, callbackContext);
+
+        Bitmap thumbnailImage = imageHelper.createThumbnailImage(outputImage);
+        saveBitmapToFile(thumbnailImage, getThumbnailFilename(targetFileName), Math.max(quality - 20, 20),
+                callbackContext);
+
+        sendPluginResult(targetFileName, callbackContext);
+    }
+    private void saveBitmapToFile(Bitmap bitmap, String fileName, Integer quality, CallbackContext callbackContext) {
+        Context context = cordova.getContext();
+        try {
+            FileOutputStream outputStream = context.openFileOutput(fileName, Context.MODE_PRIVATE);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream);
+        } catch (IOException e) {
+            callbackContext.error(e.getMessage());
+        }
+    }
+
+
+    private void sendPluginResult(String targetFileName, CallbackContext callbackContext) {
+        JSONArray output = new JSONArray();
+        output.put(targetFileName);
+        output.put(getThumbnailFilename(targetFileName));
+
+        PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, output);
+        callbackContext.sendPluginResult(pluginResult);
+    }
+
+    private String getThumbnailFilename(String fileName) {
+        return "thumb-" + fileName;
+    }
+
+    public boolean setZoom(float zoomRatio, CallbackContext callbackContext) {
         if (cameraInstance == null) {
             callbackContext.error("no camera instance");
         }
@@ -211,17 +188,23 @@ public class CameraXPreview extends CordovaPlugin {
         return true;
     }
 
-    private boolean getMaxZoom(CallbackContext callbackContext) {
+    public boolean getMaxZoom(CallbackContext callbackContext) {
         if (cameraInstance == null) {
             callbackContext.error("no camera instance");
         }
-        float zoomRatio = cameraInstance.getCameraInfo().getZoomState().getValue().getMaxZoomRatio();
-        PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, zoomRatio);
-        callbackContext.sendPluginResult(pluginResult);
+        ZoomState zoomState = cameraInstance.getCameraInfo().getZoomState().getValue();
+        if(zoomState != null) {
+            float zoomRatio = zoomState.getMaxZoomRatio();
+            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, zoomRatio);
+            callbackContext.sendPluginResult(pluginResult);
+        } else {
+            callbackContext.error("Zoom State is null");
+        }
+
         return true;
     }
 
-    private boolean getFlashMode(CallbackContext callbackContext) {
+    public boolean getFlashMode(CallbackContext callbackContext) {
         if (imageCapture == null) {
             callbackContext.error("no camera instance");
         }
@@ -231,7 +214,7 @@ public class CameraXPreview extends CordovaPlugin {
         return true;
     }
 
-    private boolean setFlashMode(String flashMode, CallbackContext callbackContext) {
+    public boolean setFlashMode(String flashMode, CallbackContext callbackContext) {
         if (imageCapture == null) {
             callbackContext.error("no camera instance");
         }
@@ -251,14 +234,12 @@ public class CameraXPreview extends CordovaPlugin {
                 return 0;
         }
     }
-
-    private boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
+    public boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
         recordingStoppedByUser = false;
         recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
 
         try {
             File newFile = new File(recordFilePath);
-            newFile.createNewFile();
             FileOutputOptions options = new FileOutputOptions.Builder(newFile)
                     .build();
 
@@ -270,7 +251,7 @@ public class CameraXPreview extends CordovaPlugin {
                     .withAudioEnabled()
                     .start(getExecutor(), videoRecordEvent ->  {
                         if(videoRecordEvent instanceof VideoRecordEvent.Start) {
-                            stopRecordingAfterMilliseconds((durationLimit + 1) * 1000);
+                            stopRecordingAfterMilliseconds((durationLimit + 1) * 1000L);
                             callbackContext.success();
                         }
                         if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
@@ -278,8 +259,6 @@ public class CameraXPreview extends CordovaPlugin {
                         }
                     });
 
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
         } catch (Exception e) {
             callbackContext.error(e.getMessage());
         }
@@ -295,17 +274,14 @@ public class CameraXPreview extends CordovaPlugin {
     }
 
     private void notifyRecordedVideoPath(VideoRecordEvent.Finalize event) {
-        cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if(!recordingStoppedByUser) {
-                    String filePath = event.getOutputResults().getOutputUri().toString();
-                    webView.loadUrl("javascript:" + "cordova.fireDocumentEvent('videoRecorderUpdate', {filePath: '"+ filePath + "' }, true);");
-                }
+        cordova.getActivity().runOnUiThread(() -> {
+            if(!recordingStoppedByUser) {
+                String filePath = event.getOutputResults().getOutputUri().toString();
+                webView.loadUrl("javascript:" + "cordova.fireDocumentEvent('videoRecorderUpdate', {filePath: '"+ filePath + "' }, true);");
             }
         });
     }
-    private boolean stopRecording(CallbackContext callbackContext) {
+    public boolean stopRecording(CallbackContext callbackContext) {
         recordingStoppedByUser = true;
         recording.stop();
         recording = null;
@@ -313,7 +289,6 @@ public class CameraXPreview extends CordovaPlugin {
         delayInMilliseconds(() -> callbackContext.sendPluginResult(pluginResult), 1000);
         return true;
     }
-
     private void delayInMilliseconds(Runnable runnable, long duration) {
         new Timer().schedule(new TimerTask() {
             @Override
@@ -322,111 +297,6 @@ public class CameraXPreview extends CordovaPlugin {
             }
         }, duration);
     }
-
-    private Executor getExecutor() {
-        return ContextCompat.getMainExecutor(cordova.getContext());
-    }
-
-    private void processImage(ImageProxy imageProxy, int quality, String targetFileName, int orientation,
-            CallbackContext callbackContext) {
-        Bitmap outputImage = rotateAndReturnImage(imageProxy, orientation, callbackContext);
-        saveBitmapToFile(outputImage, targetFileName, quality, callbackContext);
-
-        Bitmap thumbnailImage = createThumbnailImage(outputImage);
-        saveBitmapToFile(thumbnailImage, getThumbnailFilename(targetFileName), Math.max(quality - 20, 20),
-                callbackContext);
-
-        sendPluginResult(targetFileName, callbackContext);
-    }
-
-    @SuppressLint("RestrictedApi")
-    private Bitmap rotateAndReturnImage(ImageProxy imageProxy, int orientation, CallbackContext callbackContext) {
-        byte[] data = imageProxyToByteArray(imageProxy);
-        Matrix matrix = new Matrix();
-        matrix.preRotate(getImageRotationAngle(orientation));
-        Bitmap bitmapImage = BitmapFactory.decodeByteArray(data, 0, data.length);
-        Bitmap outputImage = applyMatrix(bitmapImage, matrix);
-        return outputImage;
-    }
-
-    private float getImageRotationAngle(int orientation) {
-        // TODO Find a way to get the returned image in a correct rotation, so that we wont need to do post-processing
-        switch (orientation) {
-            case 0: // portrait-primary
-                return 90;
-            case 180: // portrait-secondary
-                return 270;
-            case 90: // landscape-primary
-                return 180;
-            default: // landscape-secondary
-                return 0;
-        }
-    }
-
-    private byte[] imageProxyToByteArray(ImageProxy imageProxy) {
-        Image image = imageProxy.getImage();
-
-        Image.Plane[] planes = image.getPlanes();
-
-        // Calculate the total buffer size required
-        int bufferSize = 0;
-        for (Image.Plane plane : planes) {
-            bufferSize += plane.getBuffer().remaining();
-        }
-
-        byte[] byteArray = new byte[bufferSize];
-
-        // Copy the pixel data from each plane into the byte array
-        int offset = 0;
-        for (Image.Plane plane : planes) {
-            ByteBuffer buffer = plane.getBuffer();
-            int length = buffer.remaining();
-            buffer.get(byteArray, offset, length);
-            offset += length;
-        }
-
-        // Close the Image and ImageProxy
-        image.close();
-        imageProxy.close();
-
-        return byteArray;
-    }
-    private void saveBitmapToFile(Bitmap bitmap, String fileName, Integer quality, CallbackContext callbackContext) {
-        Context context = cordova.getContext();
-        try {
-            FileOutputStream outputStream = context.openFileOutput(fileName, Context.MODE_PRIVATE);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream);
-        } catch (IOException e) {
-            callbackContext.error(e.getMessage());
-        }
-    }
-
-    private Bitmap createThumbnailImage(Bitmap bitmap) {
-        Rect scaledRect = RectMathUtil.contain(bitmap.getWidth(), bitmap.getHeight(), 200, 200);
-        // turn image to correct aspect ratio.
-        Bitmap partOfImage = Bitmap.createBitmap(bitmap, scaledRect.left, scaledRect.top, scaledRect.width(),
-                scaledRect.height());
-        // scale down without stretching.
-        return Bitmap.createScaledBitmap(partOfImage, 200, 200, true);
-    }
-
-    private void sendPluginResult(String targetFileName, CallbackContext callbackContext) {
-        JSONArray output = new JSONArray();
-        output.put(targetFileName);
-        output.put(getThumbnailFilename(targetFileName));
-
-        PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, output);
-        callbackContext.sendPluginResult(pluginResult);
-    }
-
-    private String getThumbnailFilename(String fileName) {
-        return "thumb-" + fileName;
-    }
-
-    private Bitmap applyMatrix(Bitmap source, Matrix matrix) {
-        return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
-    }
-
     private void setupPreviewView(int x, int y, int width, int height) {
         previewView = new PreviewView(cordova.getActivity());
 
@@ -448,8 +318,8 @@ public class CameraXPreview extends CordovaPlugin {
 
     private void setupUseCasesAndInitCameraInstance(CallbackContext callbackContext) {
         try {
-            cameraProvider = cameraProviderFuture.get();
-            cameraSelector = setupCameraSelectorUseCase();
+            ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+            CameraSelector cameraSelector = setupCameraSelectorUseCase();
             Preview preview = setupPreviewUseCase();
 
             imageCapture = setupImageCaptureUseCase();
@@ -477,36 +347,35 @@ public class CameraXPreview extends CordovaPlugin {
         return preview;
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private void tapToFocusAndPinchToZoom() {
         ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(cordova.getActivity(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override
-            public boolean onScale(ScaleGestureDetector detector) {
-                float scale = (float) (cameraInstance.getCameraInfo().getZoomState().getValue().getZoomRatio() * detector.getScaleFactor());
-                cameraInstance.getCameraControl().setZoomRatio(scale);
-                notifyZoomRatioUpdate(scale);
+            public boolean onScale(@NonNull ScaleGestureDetector detector) {
+                ZoomState zoomState = cameraInstance.getCameraInfo().getZoomState().getValue();
+                if(zoomState != null) {
+                    float scale = zoomState.getZoomRatio() * detector.getScaleFactor();
+                    cameraInstance.getCameraControl().setZoomRatio(scale);
+                    notifyZoomRatioUpdate(scale);
+                }
+
                 return true;
             }
         });
-        previewView.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                if(event.getAction() == MotionEvent.ACTION_UP) {
-                    triggerAutoFocusAndMetering(event.getX(), event.getY());
-                } else {
-                    scaleGestureDetector.onTouchEvent(event);
-                }
-                return true;
+        previewView.setOnTouchListener((v, event) -> {
+            if(event.getAction() == MotionEvent.ACTION_UP) {
+                triggerAutoFocusAndMetering(event.getX(), event.getY());
+            } else {
+                scaleGestureDetector.onTouchEvent(event);
             }
+            return true;
         });
     }
 
     private void notifyZoomRatioUpdate(float ratio) {
-        cordova.getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                String statement = "cordova.fireDocumentEvent('zoomRatioUpdate', {ratio:'" + ratio + "'}, true);";
-                webView.loadUrl("javascript:" + statement);
-            }
+        cordova.getActivity().runOnUiThread(() -> {
+            String statement = "cordova.fireDocumentEvent('zoomRatioUpdate', {ratio:'" + ratio + "'}, true);";
+            webView.loadUrl("javascript:" + statement);
         });
     }
 
@@ -544,11 +413,14 @@ public class CameraXPreview extends CordovaPlugin {
     }
 
     private VideoCapture<Recorder> setupVideoCaptureUseCase() {
-        QualitySelector qualitySelector = QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD));
+        QualitySelector qualitySelector = QualitySelector.from(Quality.SD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD));
         Recorder recorder = new Recorder.Builder()
                 .setExecutor(getExecutor())
                 .setQualitySelector(qualitySelector)
                 .build();
         return VideoCapture.withOutput(recorder);
+    }
+    private Executor getExecutor() {
+        return ContextCompat.getMainExecutor(cordova.getContext());
     }
 }
