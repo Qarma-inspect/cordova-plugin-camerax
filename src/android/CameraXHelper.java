@@ -74,8 +74,12 @@ public class CameraXHelper {
     private final CordovaWebView webView;
     private final CordovaPlugin plugin;
     private static final int CAM_REQ_CODE = 0;
-    private static final String[] permissions = {
-            Manifest.permission.CAMERA
+    private static final String[] imagePermissions = {
+            Manifest.permission.CAMERA,
+    };
+    private static final String[] videoPermissions = {
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
     };
 
     private CameraXHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
@@ -94,7 +98,7 @@ public class CameraXHelper {
     }
 
     public boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
-        if (cordova.hasPermission(permissions[0])) {
+        if (cordova.hasPermission(imagePermissions[0])) {
             cordova.getActivity().runOnUiThread(() -> {
                 setupPreviewView(x, y, width, height);
                 cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
@@ -102,7 +106,7 @@ public class CameraXHelper {
                         ContextCompat.getMainExecutor(cordova.getContext()));
             });
         } else {
-            cordova.requestPermissions(plugin, CAM_REQ_CODE, permissions);
+            cordova.requestPermissions(plugin, CAM_REQ_CODE, imagePermissions);
             callbackContext.error("Camera permission not allowed");
         }
         return true;
@@ -246,33 +250,38 @@ public class CameraXHelper {
     }
 
     public boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
-        recordingStoppedByUser = false;
-        recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
+        if (cordova.hasPermission(videoPermissions[0]) && cordova.hasPermission(videoPermissions[1])) {
+            recordingStoppedByUser = false;
+            recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
 
-        try {
-            File newFile = new File(recordFilePath);
-            FileOutputOptions options = new FileOutputOptions.Builder(newFile)
-                    .build();
+            try {
+                File newFile = new File(recordFilePath);
+                FileOutputOptions options = new FileOutputOptions.Builder(newFile)
+                        .build();
 
-            if (ActivityCompat.checkSelfPermission(cordova.getActivity(),
-                    Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                callbackContext.error("Permission not allowed");
-                return false;
+                if (ActivityCompat.checkSelfPermission(cordova.getActivity(),
+                        Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                    callbackContext.error("Permission not allowed");
+                    return false;
+                }
+                recording = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
+                        .withAudioEnabled()
+                        .start(getExecutor(), videoRecordEvent -> {
+                            if (videoRecordEvent instanceof VideoRecordEvent.Start) {
+                                stopRecordingAfterMilliseconds((durationLimit + 1) * 1000L);
+                                callbackContext.success();
+                            }
+                            if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
+                                notifyRecordedVideoPath((VideoRecordEvent.Finalize) videoRecordEvent);
+                            }
+                        });
+
+            } catch (Exception e) {
+                callbackContext.error(e.getMessage());
             }
-            recording = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
-                    .withAudioEnabled()
-                    .start(getExecutor(), videoRecordEvent -> {
-                        if (videoRecordEvent instanceof VideoRecordEvent.Start) {
-                            stopRecordingAfterMilliseconds((durationLimit + 1) * 1000L);
-                            callbackContext.success();
-                        }
-                        if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
-                            notifyRecordedVideoPath((VideoRecordEvent.Finalize) videoRecordEvent);
-                        }
-                    });
-
-        } catch (Exception e) {
-            callbackContext.error(e.getMessage());
+        } else {
+            cordova.requestPermissions(plugin, CAM_REQ_CODE, videoPermissions);
+            callbackContext.error("Camera permission not allowed");
         }
         return true;
     }
