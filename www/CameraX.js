@@ -2,15 +2,15 @@ var argscheck = require('cordova/argscheck'),
     utils = require('cordova/utils'),
     exec = require('cordova/exec');
 
-var PLUGIN_NAME = "CameraXPreview";
+var PLUGIN_NAME = "CameraXPlugin";
 
-var CameraXPreview = function () { };
+var CameraXPlugin = function () { };
 
 function isFunction(obj) {
     return !!(obj && obj.constructor && obj.call && obj.apply);
 };
 
-CameraXPreview.startCameraX = function (options, onSuccess, onError) {
+CameraXPlugin.startCameraX = function (options, onSuccess, onError) {
     options = options || {};
     options.x = options.x || 0;
     options.y = options.y || 0;
@@ -34,15 +34,15 @@ CameraXPreview.startCameraX = function (options, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "startCameraX", [options.x, options.y, options.width, options.height, options.camera, options.tapPhoto, options.previewDrag, options.toBack, options.alpha, options.tapFocus]);
 };
 
-CameraXPreview.stopCameraX = function (onSuccess, onError) {
+CameraXPlugin.stopCameraX = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopCameraX", []);
 };
 
-CameraXPreview.switchCamera = function (onSuccess, onError) {
+CameraXPlugin.switchCamera = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "switchCamera", []);
 };
 
-CameraXPreview.takePictureWithCameraX = function (opts, onSuccess, onError) {
+CameraXPlugin.takePictureWithCameraX = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};
     } else if (isFunction(opts)) {
@@ -81,23 +81,23 @@ CameraXPreview.takePictureWithCameraX = function (opts, onSuccess, onError) {
         ]);
 };
 
-CameraXPreview.getMaxZoomCameraX = function(onSuccess, onError) {
+CameraXPlugin.getMaxZoomCameraX = function(onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "getMaxZoomCameraX", []);
 };
 
-CameraXPreview.setZoomCameraX = function(zoom, onSuccess, onError) {
+CameraXPlugin.setZoomCameraX = function(zoom, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "setZoomCameraX", [zoom]);
 };
 
-CameraXPreview.getFlashModeCameraX = function(onSuccess, onError) {
+CameraXPlugin.getFlashModeCameraX = function(onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "getFlashModeCameraX", []);
 };
 
-CameraXPreview.setFlashModeCameraX = function(mode, onSuccess, onError) {
+CameraXPlugin.setFlashModeCameraX = function(mode, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "setFlashModeCameraX", [mode]);
 };
 
-CameraXPreview.startRecordingCameraX = function (opts, onSuccess, onError) {
+CameraXPlugin.startRecordingCameraX = function (opts, onSuccess, onError) {
     if (!opts) {
         opts = {};
     } else if (isFunction(opts)) {
@@ -123,8 +123,8 @@ CameraXPreview.startRecordingCameraX = function (opts, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "startRecordingCameraX", [opts.fileName, opts.durationLimit]);
 };
 
-CameraXPreview.stopRecordingCameraX = function (onSuccess, onError) {
+CameraXPlugin.stopRecordingCameraX = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopRecordingCameraX");
 };
 
-module.exports = CameraXPreview;
+module.exports = CameraXPlugin;

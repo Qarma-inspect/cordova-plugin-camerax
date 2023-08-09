@@ -16,7 +16,7 @@ interface CameraPreviewStartCameraXOptions {
 
 type CameraPreviewCameraDirection = "back" | "front";
 
-interface CameraXPreview {
+interface CameraXPlugin {
     startCameraX(
         options?: CameraPreviewStartCameraXOptions,
         onSuccess?: CameraPreviewSuccessHandler,

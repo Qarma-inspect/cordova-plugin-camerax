@@ -13,8 +13,8 @@
     <issue>https://github.com/Qarma-inspect/cordova-plugin-camerax/issues</issue>
     <preference name="CAMERAX_VERSION" default="1.2.3"/>
 
-    <js-module src="www/CameraX.js" name="CameraXPreview">
-        <clobbers target="CameraXPreview" />
+    <js-module src="www/CameraX.js" name="CameraXPlugin">
+        <clobbers target="CameraXPlugin" />
     </js-module>
 
     <platform name="android">
