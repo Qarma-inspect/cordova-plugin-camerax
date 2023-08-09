@@ -24,7 +24,7 @@ public class CameraXPlugin extends CordovaPlugin {
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
-        CameraXHelper helper = new CameraXHelper(cordova, webView, this);
+        CameraXHelper helper = CameraXHelper.getInstance(cordova, webView, this);
         switch (action) {
             case START_CAMERA_ACTION:
                 return helper.startCameraX(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3),

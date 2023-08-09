@@ -59,6 +59,7 @@ import java.util.concurrent.Executor;
 
 @ExperimentalGetImage
 public class CameraXHelper {
+    private static CameraXHelper helper = null;
     private PreviewView previewView;
     private Camera cameraInstance;
     private ImageCapture imageCapture;
@@ -77,11 +78,19 @@ public class CameraXHelper {
             Manifest.permission.CAMERA
     };
 
-    public CameraXHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
+    private CameraXHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
             CordovaPlugin cordovaPlugin) {
         cordova = cordovaInterface;
         webView = cordovaWebView;
         plugin = cordovaPlugin;
+    }
+
+    public static CameraXHelper getInstance(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
+            CordovaPlugin cordovaPlugin) {
+        if (helper == null) {
+            helper = new CameraXHelper(cordovaInterface, cordovaWebView, cordovaPlugin);
+        }
+        return helper;
     }
 
     public boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
@@ -94,8 +103,8 @@ public class CameraXHelper {
             });
         } else {
             cordova.requestPermissions(plugin, CAM_REQ_CODE, permissions);
+            callbackContext.error("Camera permission not allowed");
         }
-
         return true;
     }
 
