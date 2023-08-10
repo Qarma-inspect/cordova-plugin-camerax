@@ -53,10 +53,6 @@ interface CameraXPlugin {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
-    switchCamera(
-        onSuccess?: CameraPreviewSuccessHandler,
-        onError?: CameraPreviewErrorHandler
-    ): void;
     takePictureWithCameraX(
         options?: CameraPreviewTakePictureOptions | CameraPreviewSuccessHandler,
         onSuccess?: CameraPreviewSuccessHandler | CameraPreviewErrorHandler,

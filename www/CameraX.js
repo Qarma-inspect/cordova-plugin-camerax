@@ -1,9 +1,5 @@
-var argscheck = require('cordova/argscheck'),
-    utils = require('cordova/utils'),
-    exec = require('cordova/exec');
-
+var exec = require('cordova/exec');
 var PLUGIN_NAME = "CameraXPlugin";
-
 var CameraXPlugin = function () { };
 
 function isFunction(obj) {
@@ -36,10 +32,6 @@ CameraXPlugin.startCameraX = function (options, onSuccess, onError) {
 
 CameraXPlugin.stopCameraX = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopCameraX", []);
-};
-
-CameraXPlugin.switchCamera = function (onSuccess, onError) {
-    exec(onSuccess, onError, PLUGIN_NAME, "switchCamera", []);
 };
 
 CameraXPlugin.takePictureWithCameraX = function (opts, onSuccess, onError) {
