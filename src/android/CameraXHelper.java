@@ -97,12 +97,12 @@ public class CameraXHelper {
         return helper;
     }
 
-    public boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
+    public boolean startCameraX(int x, int y, int width, int height, int targetPictureWidth, int targetPictureHeight, CallbackContext callbackContext) {
         if (cordova.hasPermission(imagePermissions[0])) {
             cordova.getActivity().runOnUiThread(() -> {
                 setupPreviewView(x, y, width, height);
                 cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
-                cameraProviderFuture.addListener(() -> setupUseCasesAndInitCameraInstance(callbackContext),
+                cameraProviderFuture.addListener(() -> setupUseCasesAndInitCameraInstance(callbackContext, targetPictureWidth, targetPictureHeight),
                         ContextCompat.getMainExecutor(cordova.getContext()));
             });
         } else {
@@ -341,13 +341,13 @@ public class CameraXHelper {
         cordova.getActivity().addContentView(previewView, layoutParams);
     }
 
-    private void setupUseCasesAndInitCameraInstance(CallbackContext callbackContext) {
+    private void setupUseCasesAndInitCameraInstance(CallbackContext callbackContext, int targetPictureWidth, int targetPictureHeight) {
         try {
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
             CameraSelector cameraSelector = setupCameraSelectorUseCase();
             Preview preview = setupPreviewUseCase();
 
-            imageCapture = setupImageCaptureUseCase();
+            imageCapture = setupImageCaptureUseCase(targetPictureWidth, targetPictureHeight);
 
             videoCapture = setupVideoCaptureUseCase();
 
@@ -411,11 +411,11 @@ public class CameraXHelper {
                 .build();
     }
 
-    private ImageCapture setupImageCaptureUseCase() {
+    private ImageCapture setupImageCaptureUseCase(int targetPictureWidth, int targetPictureHeight) {
 
         ImageCapture.Builder builder = new ImageCapture.Builder();
 
-        builder.setTargetResolution(new Size(1200, 1600));
+        builder.setTargetResolution(new Size(targetPictureWidth, targetPictureHeight));
         turnOffNoiseReduction(builder);
 
         return builder.build();
