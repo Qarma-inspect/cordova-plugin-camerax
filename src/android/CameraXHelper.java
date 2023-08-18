@@ -22,7 +22,6 @@ import androidx.camera.camera2.interop.Camera2Interop;
 import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraControl;
-import androidx.camera.core.CameraProvider;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.FocusMeteringAction;
@@ -130,13 +129,13 @@ public class CameraXHelper {
         return helper;
     }
 
-    public boolean startCameraX(int x, int y, int width, int height, int targetPictureWidth, int targetPictureHeight, CallbackContext callbackContext) {
+    public boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
         enableOrientationListener();
         if (cordova.hasPermission(imagePermissions[0])) {
             cordova.getActivity().runOnUiThread(() -> {
                 setupPreviewView(x, y, width, height);
                 cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
-                cameraProviderFuture.addListener(() -> setupPreviewUseCasesAndInitCameraInstance(callbackContext, targetPictureWidth, targetPictureHeight),
+                cameraProviderFuture.addListener(() -> setupPreviewUseCaseAndInitCameraInstance(callbackContext),
                         ContextCompat.getMainExecutor(cordova.getContext()));
             });
         } else {
@@ -152,24 +151,31 @@ public class CameraXHelper {
             cameraProviderFuture.addListener(() -> {
                 try {
                     cameraProviderFuture.get().unbindAll();
+                    resetCameraInstance();
+                    removePreviewView();
+                    callbackContext.success();
                 } catch (Exception e) {
                     callbackContext.error(e.getMessage());
                 }
-                cameraInstance = null;
-
-                // Remove the dynamic PreviewView from the Cordova activity's layout
-                ViewGroup parentView = (ViewGroup) this.previewView.getParent();
-                if (parentView != null) {
-                    parentView.removeView(this.previewView);
-                }
-
-                callbackContext.success();
             }, ContextCompat.getMainExecutor(cordova.getContext()));
         }
         return true;
     }
 
-    public boolean takePicture(int quality, String targetFileName, int orientation,
+    private void resetCameraInstance() {
+        cameraInstance = null;
+        imageCapture = null;
+        videoCapture = null;
+    }
+
+    private void removePreviewView() {
+        ViewGroup parentView = (ViewGroup) this.previewView.getParent();
+        if (parentView != null) {
+            parentView.removeView(this.previewView);
+        }
+    }
+
+    public boolean takePicture(int quality, String targetFileName,
             CallbackContext callbackContext) {
         cordova.getActivity().runOnUiThread(() -> {
             try {
@@ -178,17 +184,17 @@ public class CameraXHelper {
                 }
                 imageCapture.setTargetRotation(getTargetRotation());
                 imageCapture.takePicture(getExecutor(),
-                        new ImageCapture.OnImageCapturedCallback() {
-                            @Override
-                            public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
-                                processImage(imageProxy, quality, targetFileName, callbackContext);
-                            }
+                    new ImageCapture.OnImageCapturedCallback() {
+                        @Override
+                        public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
+                            processImage(imageProxy, quality, targetFileName, callbackContext);
+                        }
 
-                            @Override
-                            public void onError(@NonNull ImageCaptureException exception) {
-                                callbackContext.error(exception.getMessage());
-                            }
-                        });
+                        @Override
+                        public void onError(@NonNull ImageCaptureException exception) {
+                            callbackContext.error(exception.getMessage());
+                        }
+                    });
             } catch (Exception e) {
                 callbackContext.error(e.getMessage());
             }
@@ -323,8 +329,6 @@ public class CameraXHelper {
                     if(videoCapture == null) {
                         addVideoCaptureUseCase(callbackContext);
                     }
-
-
                     recordingStoppedByUser = false;
                     recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
 
@@ -428,7 +432,7 @@ public class CameraXHelper {
         cordova.getActivity().addContentView(previewView, layoutParams);
     }
 
-    private void setupPreviewUseCasesAndInitCameraInstance(CallbackContext callbackContext, int targetPictureWidth, int targetPictureHeight) {
+    private void setupPreviewUseCaseAndInitCameraInstance(CallbackContext callbackContext) {
         try {
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
             cameraSelector = setupCameraSelectorUseCase();

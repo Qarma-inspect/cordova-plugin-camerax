@@ -21,7 +21,21 @@ public class ImageHelper {
         Matrix matrix = new Matrix();
         matrix.preRotate(imageProxy.getImageInfo().getRotationDegrees());
         Bitmap bitmapImage = BitmapFactory.decodeByteArray(data, 0, data.length);
-        return applyMatrix(bitmapImage, matrix);
+        Bitmap imageWithProperRotation = applyMatrix(bitmapImage, matrix);
+        return downSizeImageIfNecessary(imageWithProperRotation);
+    }
+
+    private Bitmap downSizeImageIfNecessary(Bitmap bitmap) {
+        int imageWidth = bitmap.getWidth();
+        int imageHeight = bitmap.getHeight();
+        double ratio = Math.min(imageWidth, imageHeight) / (double) Math.max(imageWidth, imageHeight);
+        if(imageWidth * imageHeight <= 1200 * 1600 || ratio != 0.75) {
+            return bitmap;
+        }
+        boolean isPortrait = imageWidth < imageHeight;
+        int newWidth = isPortrait ? 1200 : 1600;
+        int newHeight = isPortrait ? 1600 : 1200;
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
     }
 
     public Bitmap createThumbnailImage(Bitmap bitmap) {

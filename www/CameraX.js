@@ -12,8 +12,6 @@ CameraXPlugin.startCameraX = function (options, onSuccess, onError) {
     options.y = options.y || 0;
     options.width = options.width || window.screen.width;
     options.height = options.height || window.screen.height;
-    options.targetPictureWidth = options.targetPictureWidth;
-    options.targetPictureHeight = options.targetPictureHeight;
     options.camera = options.camera || CameraPreview.CAMERA_DIRECTION.FRONT;
     if (typeof (options.tapPhoto) === 'undefined') {
         options.tapPhoto = true;
