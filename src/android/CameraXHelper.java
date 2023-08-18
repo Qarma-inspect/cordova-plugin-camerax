@@ -5,12 +5,15 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.hardware.SensorManager;
 import android.hardware.camera2.CaptureRequest;
 import android.util.DisplayMetrics;
 import android.util.Size;
 import android.util.TypedValue;
 import android.view.MotionEvent;
+import android.view.OrientationEventListener;
 import android.view.ScaleGestureDetector;
+import android.view.Surface;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 
@@ -19,6 +22,7 @@ import androidx.camera.camera2.interop.Camera2Interop;
 import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraControl;
+import androidx.camera.core.CameraProvider;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.FocusMeteringAction;
@@ -69,6 +73,8 @@ public class CameraXHelper {
     private String recordFilePath;
 
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+    private CameraSelector cameraSelector;
+    private Preview preview;
     private boolean recordingStoppedByUser = false;
     private final CordovaInterface cordova;
     private final CordovaWebView webView;
@@ -82,11 +88,38 @@ public class CameraXHelper {
             Manifest.permission.RECORD_AUDIO
     };
 
+    private OrientationEventListener mOrientationEventListener;
+    private int mOrientation = 0;
+
     private CameraXHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
             CordovaPlugin cordovaPlugin) {
         cordova = cordovaInterface;
         webView = cordovaWebView;
         plugin = cordovaPlugin;
+        registerOrientationListener();
+    }
+
+    private void registerOrientationListener() {
+        if (mOrientationEventListener == null) {
+            mOrientationEventListener = new OrientationEventListener(this.cordova.getActivity(), SensorManager.SENSOR_DELAY_NORMAL) {
+                @Override
+                public void onOrientationChanged(int orientation) {
+                    mOrientation = orientation;
+                }
+            };
+        }
+    }
+
+    private void enableOrientationListener() {
+        if (mOrientationEventListener.canDetectOrientation()) {
+            mOrientationEventListener.enable();
+        }
+    }
+
+    private void disableOrientationListener() {
+        if (mOrientationEventListener.canDetectOrientation()) {
+            mOrientationEventListener.disable();
+        }
     }
 
     public static CameraXHelper getInstance(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
@@ -98,11 +131,12 @@ public class CameraXHelper {
     }
 
     public boolean startCameraX(int x, int y, int width, int height, int targetPictureWidth, int targetPictureHeight, CallbackContext callbackContext) {
+        enableOrientationListener();
         if (cordova.hasPermission(imagePermissions[0])) {
             cordova.getActivity().runOnUiThread(() -> {
                 setupPreviewView(x, y, width, height);
                 cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
-                cameraProviderFuture.addListener(() -> setupUseCasesAndInitCameraInstance(callbackContext, targetPictureWidth, targetPictureHeight),
+                cameraProviderFuture.addListener(() -> setupPreviewUseCasesAndInitCameraInstance(callbackContext, targetPictureWidth, targetPictureHeight),
                         ContextCompat.getMainExecutor(cordova.getContext()));
             });
         } else {
@@ -113,6 +147,7 @@ public class CameraXHelper {
     }
 
     public boolean stopCameraX(CallbackContext callbackContext) {
+        disableOrientationListener();
         if (cameraInstance != null) {
             cameraProviderFuture.addListener(() -> {
                 try {
@@ -136,30 +171,62 @@ public class CameraXHelper {
 
     public boolean takePicture(int quality, String targetFileName, int orientation,
             CallbackContext callbackContext) {
-        try {
-            imageCapture.takePicture(getExecutor(),
-                    new ImageCapture.OnImageCapturedCallback() {
-                        @Override
-                        public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
-                            processImage(imageProxy, quality, targetFileName, orientation, callbackContext);
-                        }
+        cordova.getActivity().runOnUiThread(() -> {
+            try {
+                if(imageCapture == null) {
+                    addImageCaptureUseCase(1200, 1600);
+                }
+                imageCapture.setTargetRotation(getTargetRotation());
+                imageCapture.takePicture(getExecutor(),
+                        new ImageCapture.OnImageCapturedCallback() {
+                            @Override
+                            public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
+                                processImage(imageProxy, quality, targetFileName, callbackContext);
+                            }
 
-                        @Override
-                        public void onError(@NonNull ImageCaptureException exception) {
-                            callbackContext.error(exception.getMessage());
-                        }
-                    });
-        } catch (Exception e) {
-            callbackContext.error(e.getMessage());
-        }
-
+                            @Override
+                            public void onError(@NonNull ImageCaptureException exception) {
+                                callbackContext.error(exception.getMessage());
+                            }
+                        });
+            } catch (Exception e) {
+                callbackContext.error(e.getMessage());
+            }
+        });
         return true;
     }
 
-    private void processImage(ImageProxy imageProxy, int quality, String targetFileName, int orientation,
+    private void addImageCaptureUseCase(int width, int height) {
+        try {
+            imageCapture = setupImageCaptureUseCase(width, height);
+            ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+            cameraProvider.unbind(videoCapture);
+            videoCapture = null;
+            cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, imageCapture);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private int getTargetRotation() {
+        if(mOrientation >= 45 && mOrientation < 135) {
+            return Surface.ROTATION_270;
+        } else if(mOrientation >= 135 && mOrientation < 225) {
+            return Surface.ROTATION_180;
+        } else if(mOrientation >= 225 && mOrientation < 315) {
+            return Surface.ROTATION_90;
+        } else {
+            return Surface.ROTATION_0;
+        }
+    }
+
+    private void processImage(ImageProxy imageProxy, int quality, String targetFileName,
             CallbackContext callbackContext) {
         ImageHelper imageHelper = new ImageHelper();
-        Bitmap outputImage = imageHelper.rotateAndReturnImage(imageProxy, orientation);
+        Bitmap outputImage = imageHelper.rotateAndReturnImage(imageProxy);
         saveBitmapToFile(outputImage, targetFileName, quality, callbackContext);
 
         Bitmap thumbnailImage = imageHelper.createThumbnailImage(outputImage);
@@ -251,39 +318,59 @@ public class CameraXHelper {
 
     public boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
         if (cordova.hasPermission(videoPermissions[0]) && cordova.hasPermission(videoPermissions[1])) {
-            recordingStoppedByUser = false;
-            recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
+            cordova.getActivity().runOnUiThread(() -> {
+                try {
+                    if(videoCapture == null) {
+                        addVideoCaptureUseCase(callbackContext);
+                    }
 
-            try {
-                File newFile = new File(recordFilePath);
-                FileOutputOptions options = new FileOutputOptions.Builder(newFile)
-                        .build();
 
-                if (ActivityCompat.checkSelfPermission(cordova.getActivity(),
-                        Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                    callbackContext.error("Permission not allowed");
-                    return false;
+                    recordingStoppedByUser = false;
+                    recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
+
+                    File newFile = new File(recordFilePath);
+                    FileOutputOptions options = new FileOutputOptions.Builder(newFile)
+                            .build();
+
+                    if (ActivityCompat.checkSelfPermission(cordova.getActivity(),
+                            Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                        callbackContext.error("Permission not allowed");
+                    }
+                    recording = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
+                            .withAudioEnabled()
+                            .start(getExecutor(), videoRecordEvent -> {
+                                if (videoRecordEvent instanceof VideoRecordEvent.Start) {
+                                    stopRecordingAfterMilliseconds((durationLimit + 1) * 1000L);
+                                    callbackContext.success();
+                                }
+                                if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
+                                    notifyRecordedVideoPath((VideoRecordEvent.Finalize) videoRecordEvent);
+                                }
+                            });
+                } catch (Exception e) {
+                    callbackContext.error(e.getMessage());
                 }
-                recording = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
-                        .withAudioEnabled()
-                        .start(getExecutor(), videoRecordEvent -> {
-                            if (videoRecordEvent instanceof VideoRecordEvent.Start) {
-                                stopRecordingAfterMilliseconds((durationLimit + 1) * 1000L);
-                                callbackContext.success();
-                            }
-                            if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
-                                notifyRecordedVideoPath((VideoRecordEvent.Finalize) videoRecordEvent);
-                            }
-                        });
-
-            } catch (Exception e) {
-                callbackContext.error(e.getMessage());
-            }
+            });
         } else {
             cordova.requestPermissions(plugin, CAM_REQ_CODE, videoPermissions);
             callbackContext.error("Camera permission not allowed");
         }
         return true;
+    }
+
+    private void addVideoCaptureUseCase(CallbackContext callbackContext) {
+        try {
+            videoCapture = setupVideoCaptureUseCase();
+            ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+            cameraProvider.unbind(imageCapture);
+            imageCapture = null;
+            cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, videoCapture);
+        } catch (ExecutionException e) {
+            callbackContext.error(e.getMessage());
+        } catch (InterruptedException e) {
+            callbackContext.error(e.getMessage());
+        }
+
     }
 
     private void stopRecordingAfterMilliseconds(long milliseconds) {
@@ -341,19 +428,16 @@ public class CameraXHelper {
         cordova.getActivity().addContentView(previewView, layoutParams);
     }
 
-    private void setupUseCasesAndInitCameraInstance(CallbackContext callbackContext, int targetPictureWidth, int targetPictureHeight) {
+    private void setupPreviewUseCasesAndInitCameraInstance(CallbackContext callbackContext, int targetPictureWidth, int targetPictureHeight) {
         try {
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-            CameraSelector cameraSelector = setupCameraSelectorUseCase();
-            Preview preview = setupPreviewUseCase();
+            cameraSelector = setupCameraSelectorUseCase();
+            preview = setupPreviewUseCase();
 
-            imageCapture = setupImageCaptureUseCase(targetPictureWidth, targetPictureHeight);
-
-            videoCapture = setupVideoCaptureUseCase();
-
-            // Create the Camera instance
+            // The reason we don't bind imageCapture and videoCapture use cases here
+            // is because on some phones, it is only allowed to bind either imageCapture or videoCapture at a time.
             cameraInstance = cameraProvider.bindToLifecycle(
-                    cordova.getActivity(), cameraSelector, preview, imageCapture, videoCapture);
+                    cordova.getActivity(), cameraSelector, preview);
 
             callbackContext.success();
         } catch (ExecutionException e) {
@@ -412,9 +496,7 @@ public class CameraXHelper {
     }
 
     private ImageCapture setupImageCaptureUseCase(int targetPictureWidth, int targetPictureHeight) {
-
         ImageCapture.Builder builder = new ImageCapture.Builder();
-
         builder.setTargetResolution(new Size(targetPictureWidth, targetPictureHeight));
         turnOffNoiseReduction(builder);
 

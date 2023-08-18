@@ -16,10 +16,10 @@ public class ImageHelper {
     public ImageHelper() {
     }
 
-    public Bitmap rotateAndReturnImage(ImageProxy imageProxy, int orientation) {
+    public Bitmap rotateAndReturnImage(ImageProxy imageProxy) {
         byte[] data = imageProxyToByteArray(imageProxy);
         Matrix matrix = new Matrix();
-        matrix.preRotate(getImageRotationAngle(orientation));
+        matrix.preRotate(imageProxy.getImageInfo().getRotationDegrees());
         Bitmap bitmapImage = BitmapFactory.decodeByteArray(data, 0, data.length);
         return applyMatrix(bitmapImage, matrix);
     }
@@ -62,21 +62,6 @@ public class ImageHelper {
         imageProxy.close();
 
         return byteArray;
-    }
-
-    private float getImageRotationAngle(int orientation) {
-        // TODO Find a way to get the returned image in a correct rotation, so that we
-        // wont need to do post-processing
-        switch (orientation) {
-            case 0: // portrait-primary
-                return 90;
-            case 180: // portrait-secondary
-                return 270;
-            case 90: // landscape-primary
-                return 180;
-            default: // landscape-secondary
-                return 0;
-        }
     }
 
     private Bitmap applyMatrix(Bitmap source, Matrix matrix) {
