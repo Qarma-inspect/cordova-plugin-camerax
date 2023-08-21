@@ -90,6 +90,8 @@ public class CameraXHelper {
     private OrientationEventListener mOrientationEventListener;
     private int mOrientation = 0;
 
+    private Timer recordingTimer;
+
     private CameraXHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
             CordovaPlugin cordovaPlugin) {
         cordova = cordovaInterface;
@@ -348,6 +350,7 @@ public class CameraXHelper {
                                     callbackContext.success();
                                 }
                                 if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
+                                    resetRecordingTimer();
                                     notifyRecordedVideoPath((VideoRecordEvent.Finalize) videoRecordEvent);
                                 }
                             });
@@ -378,7 +381,7 @@ public class CameraXHelper {
     }
 
     private void stopRecordingAfterMilliseconds(long milliseconds) {
-        delayInMilliseconds(() -> {
+        startRecordingTimer(() -> {
             if (recording != null) {
                 recording.stop();
             }
@@ -400,7 +403,7 @@ public class CameraXHelper {
         recording.stop();
         recording = null;
         PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, recordFilePath);
-        delayInMilliseconds(() -> callbackContext.sendPluginResult(pluginResult), 1000);
+        delayInMilliseconds(() -> callbackContext.sendPluginResult(pluginResult), 1000L);
         return true;
     }
 
@@ -411,6 +414,23 @@ public class CameraXHelper {
                 runnable.run();
             }
         }, duration);
+    }
+
+    private void startRecordingTimer(Runnable runnable, long duration) {
+        recordingTimer = new Timer();
+        recordingTimer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                runnable.run();
+            }
+        }, duration);
+    }
+
+    private void resetRecordingTimer() {
+        if(recordingTimer != null) {
+            recordingTimer.cancel();
+            recordingTimer = null;
+        }
     }
 
     private void setupPreviewView(int x, int y, int width, int height) {
