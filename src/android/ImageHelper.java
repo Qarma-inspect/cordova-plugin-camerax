@@ -22,20 +22,24 @@ public class ImageHelper {
         matrix.preRotate(imageProxy.getImageInfo().getRotationDegrees());
         Bitmap bitmapImage = BitmapFactory.decodeByteArray(data, 0, data.length);
         Bitmap imageWithProperRotation = applyMatrix(bitmapImage, matrix);
-        return downSizeImageIfNecessary(imageWithProperRotation);
+        return scaleDownImageIfNecessary(imageWithProperRotation);
     }
 
-    private Bitmap downSizeImageIfNecessary(Bitmap bitmap) {
+    private Bitmap scaleDownImageIfNecessary(Bitmap bitmap) {
         int imageWidth = bitmap.getWidth();
         int imageHeight = bitmap.getHeight();
-        double ratio = Math.min(imageWidth, imageHeight) / (double) Math.max(imageWidth, imageHeight);
-        if(imageWidth * imageHeight <= 1200 * 1600 || ratio != 0.75) {
+        if(!shouldScaleDownImage(imageWidth, imageHeight)) {
             return bitmap;
         }
         boolean isPortrait = imageWidth < imageHeight;
         int newWidth = isPortrait ? 1200 : 1600;
         int newHeight = isPortrait ? 1600 : 1200;
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+    }
+
+    private boolean shouldScaleDownImage(int width, int height) {
+        double ratio = Math.min(width, height) / (double) Math.max(width, height);
+        return width * height > 1440 * 1920 && ratio == 0.75;
     }
 
     public Bitmap createThumbnailImage(Bitmap bitmap) {
