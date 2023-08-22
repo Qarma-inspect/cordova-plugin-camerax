@@ -32,8 +32,8 @@ public class CameraXPlugin extends CordovaPlugin {
             case STOP_CAMERA_ACTION:
                 return helper.stopCameraX(callbackContext);
             case TAKE_PICTURE_ACTION:
-                return helper.takePicture(args.getInt(2),
-                        args.getString(3),
+                return helper.takePicture(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3), args.getInt(4),
+                        args.getString(5),
                         callbackContext);
             case SET_ZOOM_ACTION:
                 return helper.setZoom((float) args.getDouble(0), callbackContext);

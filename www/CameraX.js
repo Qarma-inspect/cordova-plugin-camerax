@@ -49,6 +49,9 @@ CameraXPlugin.takePictureWithCameraX = function (opts, onSuccess, onError) {
     opts.width = opts.width || 0;
     opts.height = opts.height || 0;
 
+    opts.maxWidthAllowed = opts.maxWidthAllowed || 0;
+    opts.maxHeightAllowed = opts.maxHeightAllowed || 0;
+
     if (!opts.quality || opts.quality > 100 || opts.quality < 0) {
         opts.quality = 85;
     }
@@ -67,6 +70,8 @@ CameraXPlugin.takePictureWithCameraX = function (opts, onSuccess, onError) {
         [
             opts.width,
             opts.height,
+            opts.maxWidthAllowed,
+            opts.maxHeightAllowed,
             opts.quality,
             fileName,
             opts.orientation,

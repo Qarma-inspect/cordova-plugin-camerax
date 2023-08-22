@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.media.Image;
+import android.util.Size;
+
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageProxy;
 import com.cordovaplugincamerapreview.RectMathUtil;
@@ -16,30 +18,42 @@ public class ImageHelper {
     public ImageHelper() {
     }
 
-    public Bitmap rotateAndReturnImage(ImageProxy imageProxy) {
+    public Bitmap rotateAndReturnImage(ImageProxy imageProxy, Size targetSize, Size maxSizeAllowed) {
         byte[] data = imageProxyToByteArray(imageProxy);
         Matrix matrix = new Matrix();
         matrix.preRotate(imageProxy.getImageInfo().getRotationDegrees());
         Bitmap bitmapImage = BitmapFactory.decodeByteArray(data, 0, data.length);
         Bitmap imageWithProperRotation = applyMatrix(bitmapImage, matrix);
-        return scaleDownImageIfNecessary(imageWithProperRotation);
+        return scaleDownImageIfNecessary(imageWithProperRotation, targetSize, maxSizeAllowed);
     }
 
-    private Bitmap scaleDownImageIfNecessary(Bitmap bitmap) {
+    private Bitmap scaleDownImageIfNecessary(Bitmap bitmap, Size targetSize, Size maxSizeAllowed) {
         int imageWidth = bitmap.getWidth();
         int imageHeight = bitmap.getHeight();
-        if(!shouldScaleDownImage(imageWidth, imageHeight)) {
+        Size actualSize = new Size(imageWidth, imageHeight);
+        if(!shouldScaleDownImage(actualSize, maxSizeAllowed)) {
             return bitmap;
         }
-        boolean isPortrait = imageWidth < imageHeight;
-        int newWidth = isPortrait ? 1200 : 1600;
-        int newHeight = isPortrait ? 1600 : 1200;
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+        Size finalImageSize = calculateNewImageSize(actualSize, targetSize);
+        return Bitmap.createScaledBitmap(bitmap, finalImageSize.getWidth(), finalImageSize.getHeight(), true);
     }
 
-    private boolean shouldScaleDownImage(int width, int height) {
-        double ratio = Math.min(width, height) / (double) Math.max(width, height);
-        return width * height > 1440 * 1920 && ratio == 0.75;
+    private boolean shouldScaleDownImage(Size actualSize, Size maxSizeAllowed) {
+        double ratio = getImageRatio(actualSize.getWidth(), actualSize.getHeight());
+        return actualSize.getWidth() * actualSize.getHeight() > maxSizeAllowed.getWidth() * maxSizeAllowed.getHeight() && ratio == 0.75;
+    }
+
+    private double getImageRatio(int width, int height) {
+        return Math.min(width, height) / (double) Math.max(width, height);
+    }
+
+    private Size calculateNewImageSize(Size actualSize, Size targetSize) {
+        boolean isPortrait = actualSize.getWidth() < actualSize.getHeight();
+        int smallerEdge = Math.min(targetSize.getWidth(), targetSize.getHeight());
+        int biggerEdge = Math.max(targetSize.getWidth(), targetSize.getHeight());
+        int newWidth = isPortrait ? smallerEdge : biggerEdge;
+        int newHeight = isPortrait ? biggerEdge : smallerEdge;
+        return new Size(newWidth, newHeight);
     }
 
     public Bitmap createThumbnailImage(Bitmap bitmap) {

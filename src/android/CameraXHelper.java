@@ -93,7 +93,7 @@ public class CameraXHelper {
     private Timer recordingTimer;
 
     private CameraXHelper(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
-            CordovaPlugin cordovaPlugin) {
+                          CordovaPlugin cordovaPlugin) {
         cordova = cordovaInterface;
         webView = cordovaWebView;
         plugin = cordovaPlugin;
@@ -124,7 +124,7 @@ public class CameraXHelper {
     }
 
     public static CameraXHelper getInstance(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
-            CordovaPlugin cordovaPlugin) {
+                                            CordovaPlugin cordovaPlugin) {
         if (helper == null) {
             helper = new CameraXHelper(cordovaInterface, cordovaWebView, cordovaPlugin);
         }
@@ -177,26 +177,28 @@ public class CameraXHelper {
         }
     }
 
-    public boolean takePicture(int quality, String targetFileName,
-            CallbackContext callbackContext) {
+    public boolean takePicture(int targetWidth, int targetHeight, int maxWidthAllowed, int maxHeightAllowed, int quality, String targetFileName,
+                               CallbackContext callbackContext) {
         cordova.getActivity().runOnUiThread(() -> {
             try {
                 if(imageCapture == null) {
-                    addImageCaptureUseCase(1200, 1600);
+                    addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
                 }
                 imageCapture.setTargetRotation(getTargetRotation());
                 imageCapture.takePicture(getExecutor(),
-                    new ImageCapture.OnImageCapturedCallback() {
-                        @Override
-                        public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
-                            processImage(imageProxy, quality, targetFileName, callbackContext);
-                        }
+                        new ImageCapture.OnImageCapturedCallback() {
+                            @Override
+                            public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
+                                Size targetSize = new Size(targetWidth, targetHeight);
+                                Size maxSizeAllowed = new Size(maxWidthAllowed, maxHeightAllowed);
+                                processImage(imageProxy, targetSize, maxSizeAllowed, quality, targetFileName, callbackContext);
+                            }
 
-                        @Override
-                        public void onError(@NonNull ImageCaptureException exception) {
-                            callbackContext.error(exception.getMessage());
-                        }
-                    });
+                            @Override
+                            public void onError(@NonNull ImageCaptureException exception) {
+                                callbackContext.error(exception.getMessage());
+                            }
+                        });
             } catch (Exception e) {
                 callbackContext.error(e.getMessage());
             }
@@ -231,10 +233,10 @@ public class CameraXHelper {
         }
     }
 
-    private void processImage(ImageProxy imageProxy, int quality, String targetFileName,
-            CallbackContext callbackContext) {
+    private void processImage(ImageProxy imageProxy, Size targetSize, Size maxSizeAllowed, int quality, String targetFileName,
+                              CallbackContext callbackContext) {
         ImageHelper imageHelper = new ImageHelper();
-        Bitmap outputImage = imageHelper.rotateAndReturnImage(imageProxy);
+        Bitmap outputImage = imageHelper.rotateAndReturnImage(imageProxy, targetSize, maxSizeAllowed);
         saveBitmapToFile(outputImage, targetFileName, quality, callbackContext);
 
         Bitmap thumbnailImage = imageHelper.createThumbnailImage(outputImage);
