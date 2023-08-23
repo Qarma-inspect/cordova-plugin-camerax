@@ -82,6 +82,18 @@ CameraXPlugin.getMaxZoomCameraX = function(onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "getMaxZoomCameraX", []);
 };
 
+CameraXPlugin.addZoomEventListener = function(callback) {
+    document.addEventListener("zoomRatioUpdate", event => callback(event.ratio));
+}
+
+CameraXPlugin.removeZoomEventListener = function(callback) {
+    document.removeEventListener("zoomRatioUpdate", event => callback(event.ratio));
+}
+
+CameraXPlugin.removeVideoFinalizedEventListener = function(callback) {
+    document.removeEventListener("videoRecorderUpdate", event => callback(event.filePath));
+}
+
 CameraXPlugin.setZoomCameraX = function(zoom, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "setZoomCameraX", [zoom]);
 };

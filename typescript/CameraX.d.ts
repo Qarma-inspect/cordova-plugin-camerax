@@ -30,6 +30,10 @@ interface CameraXPlugin {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
+    
+    addZoomEventListener(callback: (ratio: number) => void): void;
+    removeZoomEventListener(callback: (ratio: number) => void): void;
+
     setZoomCameraX(
         zoomRatio: number,
         onSuccess?: CameraPreviewSuccessHandler,
@@ -53,6 +57,10 @@ interface CameraXPlugin {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
+
+    addVideoFinalizedEventListener(callback: (filePath: string) => void): void;
+    removeVideoFinalizedEventListener(callback: (filePath: string) => void): void;
+
     takePictureWithCameraX(
         options?: CameraPreviewTakePictureOptions | CameraPreviewSuccessHandler,
         onSuccess?: CameraPreviewSuccessHandler | CameraPreviewErrorHandler,
