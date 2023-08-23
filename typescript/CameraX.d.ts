@@ -30,9 +30,9 @@ interface CameraXPlugin {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
-    
-    addZoomEventListener(callback: (ratio: number) => void): void;
-    removeZoomEventListener(callback: (ratio: number) => void): void;
+
+    addZoomEventListener(callback: (ratio: string) => void): void;
+    removeZoomEventListener(callback: (ratio: string) => void): void;
 
     setZoomCameraX(
         zoomRatio: number,
