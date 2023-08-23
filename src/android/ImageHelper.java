@@ -22,20 +22,20 @@ public class ImageHelper {
         byte[] data = imageProxyToByteArray(imageProxy);
         Matrix matrix = new Matrix();
         matrix.preRotate(imageProxy.getImageInfo().getRotationDegrees());
+        scaleDownImageIfNecessary(matrix, imageProxy, targetSize, maxSizeAllowed);
+
         Bitmap bitmapImage = BitmapFactory.decodeByteArray(data, 0, data.length);
-        Bitmap imageWithProperRotation = applyMatrix(bitmapImage, matrix);
-        return scaleDownImageIfNecessary(imageWithProperRotation, targetSize, maxSizeAllowed);
+        return applyMatrix(bitmapImage, matrix);
     }
 
-    private Bitmap scaleDownImageIfNecessary(Bitmap bitmap, Size targetSize, Size maxSizeAllowed) {
-        int imageWidth = bitmap.getWidth();
-        int imageHeight = bitmap.getHeight();
+    private void scaleDownImageIfNecessary(Matrix matrix, ImageProxy imageProxy, Size targetSize, Size maxSizeAllowed) {
+        int imageWidth = imageProxy.getWidth();
+        int imageHeight = imageProxy.getHeight();
         Size actualSize = new Size(imageWidth, imageHeight);
-        if(!shouldScaleDownImage(actualSize, maxSizeAllowed)) {
-            return bitmap;
+        if(shouldScaleDownImage(actualSize, maxSizeAllowed)) {
+            float scaleRatio = (float) targetSize.getWidth() / imageWidth;
+            matrix.preScale(scaleRatio, scaleRatio);
         }
-        Size finalImageSize = calculateNewImageSize(actualSize, targetSize);
-        return Bitmap.createScaledBitmap(bitmap, finalImageSize.getWidth(), finalImageSize.getHeight(), true);
     }
 
     private boolean shouldScaleDownImage(Size actualSize, Size maxSizeAllowed) {

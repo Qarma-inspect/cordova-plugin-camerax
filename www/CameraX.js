@@ -124,4 +124,12 @@ CameraXPlugin.stopRecordingCameraX = function (onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "stopRecordingCameraX");
 };
 
+CameraXPlugin.addVideoFinalizedEventListener = function(callback) {
+    document.addEventListener("videoRecorderUpdate", event => callback(event.filePath));
+}
+
+CameraXPlugin.removeVideoFinalizedEventListener = function(callback) {
+    document.removeEventListener("videoRecorderUpdate", event => callback(event.filePath));
+}
+
 module.exports = CameraXPlugin;
