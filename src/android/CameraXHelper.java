@@ -309,9 +309,15 @@ public class CameraXHelper {
         if (imageCapture == null) {
             callbackContext.error("no camera instance");
         }
-        int mode = getFlashModeAsInteger(flashMode);
-        imageCapture.setFlashMode(mode);
-        callbackContext.success();
+        try {
+            int mode = getFlashModeAsInteger(flashMode);
+            imageCapture.setFlashMode(mode);
+
+            PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, mode);
+            callbackContext.sendPluginResult(pluginResult);
+        } catch (Exception exception) {
+            callbackContext.error(exception.getMessage());
+        }
         return true;
     }
 
@@ -459,11 +465,12 @@ public class CameraXHelper {
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
             cameraSelector = setupCameraSelectorUseCase();
             preview = setupPreviewUseCase();
+            imageCapture = setupImageCaptureUseCase(1200, 1600);
 
             // The reason we don't bind imageCapture and videoCapture use cases here
             // is because on some phones, it is only allowed to bind either imageCapture or videoCapture at a time.
             cameraInstance = cameraProvider.bindToLifecycle(
-                    cordova.getActivity(), cameraSelector, preview);
+                    cordova.getActivity(), cameraSelector, preview, imageCapture);
 
             callbackContext.success();
         } catch (ExecutionException e) {
