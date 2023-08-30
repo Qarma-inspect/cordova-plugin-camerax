@@ -340,7 +340,7 @@ public class CameraXHelper {
                         addVideoCaptureUseCase(callbackContext);
                     }
                     recordingStoppedByUser = false;
-                    recordFilePath = cordova.getActivity().getFileStreamPath(fileName).toString();
+                    recordFilePath = cordova.getActivity().getFileStreamPath(appendFileNameIfNeeded(fileName)).toString();
 
                     File newFile = new File(recordFilePath);
                     FileOutputOptions options = new FileOutputOptions.Builder(newFile)
@@ -371,6 +371,13 @@ public class CameraXHelper {
             callbackContext.error("Camera permission not allowed");
         }
         return true;
+    }
+
+    private String appendFileNameIfNeeded(String fileName) {
+        if(fileName.contains(".mp4")) {
+            return fileName;
+        }
+        return fileName.concat(".mp4");
     }
 
     private void addVideoCaptureUseCase(CallbackContext callbackContext) {
@@ -467,7 +474,7 @@ public class CameraXHelper {
             preview = setupPreviewUseCase();
             imageCapture = setupImageCaptureUseCase(1200, 1600);
 
-            // The reason we don't bind imageCapture and videoCapture use cases here
+            // The reason we don't bind videoCapture use case here
             // is because on some phones, it is only allowed to bind either imageCapture or videoCapture at a time.
             cameraInstance = cameraProvider.bindToLifecycle(
                     cordova.getActivity(), cameraSelector, preview, imageCapture);
