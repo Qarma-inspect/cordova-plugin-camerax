@@ -538,6 +538,7 @@ public class CameraXHelper {
     private ImageCapture setupImageCaptureUseCase(int targetPictureWidth, int targetPictureHeight) {
         ImageCapture.Builder builder = new ImageCapture.Builder();
         builder.setTargetResolution(new Size(targetPictureWidth, targetPictureHeight));
+
         turnOffNoiseReduction(builder);
 
         return builder.build();
@@ -561,8 +562,8 @@ public class CameraXHelper {
     }
 
     private VideoCapture<Recorder> setupVideoCaptureUseCase() {
-        QualitySelector qualitySelector = QualitySelector.from(Quality.SD,
-                FallbackStrategy.lowerQualityOrHigherThan(Quality.SD));
+        QualitySelector qualitySelector = QualitySelector.from(Quality.LOWEST,
+                FallbackStrategy.lowerQualityOrHigherThan(Quality.LOWEST));
         Recorder recorder = new Recorder.Builder()
                 .setExecutor(getExecutor())
                 .setQualitySelector(qualitySelector)
