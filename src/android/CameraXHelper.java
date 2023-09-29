@@ -339,6 +339,7 @@ public class CameraXHelper {
                     if(videoCapture == null) {
                         addVideoCaptureUseCase(callbackContext);
                     }
+                    videoCapture.setTargetRotation(getTargetRotation());
                     recordingStoppedByUser = false;
                     recordFilePath = cordova.getActivity().getFileStreamPath(appendFileNameIfNeeded(fileName)).toString();
 
