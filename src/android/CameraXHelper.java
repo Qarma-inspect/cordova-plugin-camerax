@@ -332,6 +332,7 @@ public class CameraXHelper {
         }
     }
 
+    @SuppressLint("RestrictedApi")
     public boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
         if (cordova.hasPermission(videoPermissions[0]) && cordova.hasPermission(videoPermissions[1])) {
             cordova.getActivity().runOnUiThread(() -> {
