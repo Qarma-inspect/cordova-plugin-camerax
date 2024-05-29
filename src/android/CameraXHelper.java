@@ -105,7 +105,9 @@ public class CameraXHelper {
             mOrientationEventListener = new OrientationEventListener(this.cordova.getActivity(), SensorManager.SENSOR_DELAY_NORMAL) {
                 @Override
                 public void onOrientationChanged(int orientation) {
-                    mOrientation = orientation;
+                    if(orientation != -1) {
+                        mOrientation = orientation;
+                    }
                 }
             };
         }
