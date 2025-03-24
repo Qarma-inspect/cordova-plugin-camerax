@@ -180,58 +180,28 @@ public class CameraXHelper {
     }
 
     public boolean takePicture(int targetWidth, int targetHeight, int maxWidthAllowed, int maxHeightAllowed, int quality, String targetFileName,
-                                CallbackContext callbackContext) {
-        // Check if activity is valid before posting to UI thread
-        if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) {
-            callbackContext.error("Activity is finishing or destroyed");
-            return true;
-        }
-
+                               CallbackContext callbackContext) {
         cordova.getActivity().runOnUiThread(() -> {
             try {
-                // Double-check activity state on UI thread
-                if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) {
-                    callbackContext.error("Activity is finishing or destroyed");
-                    return;
-                }
-
                 if(imageCapture == null) {
                     addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
-                    // Check if imageCapture was successfully created
-                    if(imageCapture == null) {
-                        callbackContext.error("Failed to create image capture use case");
-                        return;
-                    }
                 }
-
                 imageCapture.setTargetRotation(getTargetRotation());
                 imageCapture.takePicture(getExecutor(),
                         new ImageCapture.OnImageCapturedCallback() {
                             @Override
                             public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
-                                try {
-                                    Size targetSize = new Size(targetWidth, targetHeight);
-                                    Size maxSizeAllowed = new Size(maxWidthAllowed, maxHeightAllowed);
-                                    processImage(imageProxy, targetSize, maxSizeAllowed, quality, targetFileName, callbackContext);
-                                } catch (Exception e) {
-                                    android.util.Log.e("CameraXHelper", "Error processing captured image: " + e.getMessage(), e);
-                                    callbackContext.error("Error processing image: " + e.getMessage());
-                                    // Always close the image proxy to avoid memory leaks
-                                    imageProxy.close();
-                                }
+                                Size targetSize = new Size(targetWidth, targetHeight);
+                                Size maxSizeAllowed = new Size(maxWidthAllowed, maxHeightAllowed);
+                                processImage(imageProxy, targetSize, maxSizeAllowed, quality, targetFileName, callbackContext);
                             }
 
                             @Override
                             public void onError(@NonNull ImageCaptureException exception) {
-                                android.util.Log.e("CameraXHelper", "Image capture error: " + exception.getMessage(), exception);
                                 callbackContext.error(exception.getMessage());
                             }
                         });
-            } catch (IllegalArgumentException e) {
-                android.util.Log.e("CameraXHelper", "Lifecycle binding error in takePicture: " + e.getMessage(), e);
-                callbackContext.error("Lifecycle error: " + e.getMessage());
             } catch (Exception e) {
-                android.util.Log.e("CameraXHelper", "Error taking picture: " + e.getMessage(), e);
                 callbackContext.error(e.getMessage());
             }
         });
@@ -240,34 +210,17 @@ public class CameraXHelper {
 
     private void addImageCaptureUseCase(int width, int height) {
         try {
-            // Check if activity is finishing or destroyed
-            if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) {
-                // Don't proceed with camera operations if activity is not in a valid state
-                return;
-            }
-            
             imageCapture = setupImageCaptureUseCase(width, height);
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-            
-            // Only unbind videoCapture if it's not null
-            if (videoCapture != null) {
-                cameraProvider.unbind(videoCapture);
-                videoCapture = null;
-            }
-            
-            // Check again before binding to make sure the activity is still valid
-            if (!cordova.getActivity().isFinishing() && !cordova.getActivity().isDestroyed()) {
-                cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, imageCapture);
-            }
-        } catch (ExecutionException | InterruptedException e) {
-            // Log the error instead of throwing a RuntimeException which would crash the app
-            android.util.Log.e("CameraXHelper", "Error adding image capture use case: " + e.getMessage(), e);
-        } catch (IllegalArgumentException e) {
-            // This specifically catches the "destroyed lifecycle" error
-            android.util.Log.e("CameraXHelper", "Lifecycle binding error: " + e.getMessage(), e);
-        } catch (Exception e) {
-            android.util.Log.e("CameraXHelper", "Unexpected error: " + e.getMessage(), e);
+            cameraProvider.unbind(videoCapture);
+            videoCapture = null;
+            cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, imageCapture);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
+
     }
 
     private int getTargetRotation() {
@@ -433,41 +386,17 @@ public class CameraXHelper {
 
     private void addVideoCaptureUseCase(CallbackContext callbackContext) {
         try {
-            // Check if activity is finishing or destroyed
-            if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) {
-                callbackContext.error("Activity is finishing or destroyed");
-                return;
-            }
-            
             videoCapture = setupVideoCaptureUseCase();
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-            
-            // Only unbind imageCapture if it's not null
-            if (imageCapture != null) {
-                cameraProvider.unbind(imageCapture);
-                imageCapture = null;
-            }
-            
-            // Check again before binding to make sure the activity is still valid
-            if (!cordova.getActivity().isFinishing() && !cordova.getActivity().isDestroyed()) {
-                cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, videoCapture);
-            } else {
-                callbackContext.error("Activity state changed during video setup");
-            }
+            cameraProvider.unbind(imageCapture);
+            imageCapture = null;
+            cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, videoCapture);
         } catch (ExecutionException e) {
-            callbackContext.error("ExecutionException: " + e.getMessage());
-            android.util.Log.e("CameraXHelper", "Error in video capture: " + e.getMessage(), e);
+            callbackContext.error(e.getMessage());
         } catch (InterruptedException e) {
-            callbackContext.error("InterruptedException: " + e.getMessage());
-            android.util.Log.e("CameraXHelper", "Error in video capture: " + e.getMessage(), e);
-        } catch (IllegalArgumentException e) {
-            // This specifically catches the "destroyed lifecycle" error
-            callbackContext.error("Lifecycle binding error: " + e.getMessage());
-            android.util.Log.e("CameraXHelper", "Lifecycle binding error in video capture: " + e.getMessage(), e);
-        } catch (Exception e) {
-            callbackContext.error("Unexpected error: " + e.getMessage());
-            android.util.Log.e("CameraXHelper", "Unexpected error in video capture: " + e.getMessage(), e);
+            callbackContext.error(e.getMessage());
         }
+
     }
 
     private void stopRecordingAfterMilliseconds(long milliseconds) {
@@ -544,12 +473,6 @@ public class CameraXHelper {
 
     private void setupPreviewUseCaseAndInitCameraInstance(CallbackContext callbackContext) {
         try {
-            // Check if activity is finishing or destroyed before proceeding
-            if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) {
-                callbackContext.error("Activity is finishing or destroyed");
-                return;
-            }
-            
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
             cameraSelector = setupCameraSelectorUseCase();
             preview = setupPreviewUseCase();
@@ -557,27 +480,14 @@ public class CameraXHelper {
 
             // The reason we don't bind videoCapture use case here
             // is because on some phones, it is only allowed to bind either imageCapture or videoCapture at a time.
-            
-            // Check again before binding to ensure activity is still valid
-            if (!cordova.getActivity().isFinishing() && !cordova.getActivity().isDestroyed()) {
-                cameraInstance = cameraProvider.bindToLifecycle(
-                        cordova.getActivity(), cameraSelector, preview, imageCapture);
-                callbackContext.success();
-            } else {
-                callbackContext.error("Activity state changed during camera setup");
-            }
+            cameraInstance = cameraProvider.bindToLifecycle(
+                    cordova.getActivity(), cameraSelector, preview, imageCapture);
+
+            callbackContext.success();
         } catch (ExecutionException e) {
-            callbackContext.error("ExecutionException: " + e.getMessage());
             e.printStackTrace();
         } catch (InterruptedException e) {
             callbackContext.error("Failed to start the camera: " + e.getMessage());
-        } catch (IllegalArgumentException e) {
-            // This specifically catches the "destroyed lifecycle" error
-            callbackContext.error("Lifecycle binding error: " + e.getMessage());
-            android.util.Log.e("CameraXHelper", "Lifecycle binding error: " + e.getMessage(), e);
-        } catch (Exception e) {
-            callbackContext.error("Unexpected error: " + e.getMessage());
-            android.util.Log.e("CameraXHelper", "Setup camera error: " + e.getMessage(), e);
         }
     }
 
