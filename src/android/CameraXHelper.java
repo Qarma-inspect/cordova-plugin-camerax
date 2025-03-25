@@ -544,12 +544,6 @@ public class CameraXHelper {
 
     private void setupPreviewUseCaseAndInitCameraInstance(CallbackContext callbackContext) {
         try {
-            // Check if activity is finishing or destroyed before proceeding
-            if (cordova.getActivity().isFinishing() || cordova.getActivity().isDestroyed()) {
-                callbackContext.error("Activity is finishing or destroyed");
-                return;
-            }
-            
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
             cameraSelector = setupCameraSelectorUseCase();
             preview = setupPreviewUseCase();
@@ -557,15 +551,9 @@ public class CameraXHelper {
 
             // The reason we don't bind videoCapture use case here
             // is because on some phones, it is only allowed to bind either imageCapture or videoCapture at a time.
-            
-            // Check again before binding to ensure activity is still valid
-            if (!cordova.getActivity().isFinishing() && !cordova.getActivity().isDestroyed()) {
-                cameraInstance = cameraProvider.bindToLifecycle(
-                        cordova.getActivity(), cameraSelector, preview, imageCapture);
-                callbackContext.success();
-            } else {
-                callbackContext.error("Activity state changed during camera setup");
-            }
+            cameraInstance = cameraProvider.bindToLifecycle(
+                    cordova.getActivity(), cameraSelector, preview, imageCapture);
+            callbackContext.success();
         } catch (ExecutionException e) {
             callbackContext.error("ExecutionException: " + e.getMessage());
             e.printStackTrace();
