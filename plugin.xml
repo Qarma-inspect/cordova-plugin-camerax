@@ -11,7 +11,7 @@
         cordova,phonegap,ecosystem:cordova,cordova-android,cordova-ios,android,ios,ionic,camerax,cam,camera-preview,preview</keywords>
     <repo>https://github.com/Qarma-inspect/cordova-plugin-camerax</repo>
     <issue>https://github.com/Qarma-inspect/cordova-plugin-camerax/issues</issue>
-    <preference name="CAMERAX_VERSION" default="1.2.3"/>
+    <preference name="CAMERAX_VERSION" default="1.4.2"/>
 
     <js-module src="www/CameraX.js" name="CameraXPlugin">
         <clobbers target="CameraXPlugin" />
@@ -35,13 +35,12 @@
             <uses-permission android:name="android.permission.CAMERA" />
         </config-file>
 
-        <framework src="com.android.support:support-v4:27.1.3" />
-        <framework src="com.android.support:exifinterface:27.1.3" />
+        <framework src="androidx.core:core:1.9.0" />
+        <framework src="androidx.exifinterface:exifinterface:1.3.6" />
         <framework src="androidx.camera:camera-core:$CAMERAX_VERSION" />
         <framework src="androidx.camera:camera-camera2:$CAMERAX_VERSION" />
         <framework src="androidx.camera:camera-lifecycle:$CAMERAX_VERSION" />
         <framework src="androidx.camera:camera-view:$CAMERAX_VERSION" />
         <framework src="androidx.camera:camera-video:$CAMERAX_VERSION" />
-        
     </platform>
 </plugin>
