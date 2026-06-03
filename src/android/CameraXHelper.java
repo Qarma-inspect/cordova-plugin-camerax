@@ -183,24 +183,37 @@ public class CameraXHelper {
                                CallbackContext callbackContext) {
         cordova.getActivity().runOnUiThread(() -> {
             try {
-                if(imageCapture == null) {
+                if (imageCapture == null) {
                     addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
                 }
                 imageCapture.setTargetRotation(getTargetRotation());
-                imageCapture.takePicture(getExecutor(),
-                        new ImageCapture.OnImageCapturedCallback() {
-                            @Override
-                            public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
-                                Size targetSize = new Size(targetWidth, targetHeight);
-                                Size maxSizeAllowed = new Size(maxWidthAllowed, maxHeightAllowed);
-                                processImage(imageProxy, targetSize, maxSizeAllowed, quality, targetFileName, callbackContext);
-                            }
 
-                            @Override
-                            public void onError(@NonNull ImageCaptureException exception) {
-                                callbackContext.error(exception.getMessage());
-                            }
-                        });
+                ImageCapture.OnImageCapturedCallback captureCallback = new ImageCapture.OnImageCapturedCallback() {
+                    @Override
+                    public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
+                        Size targetSize = new Size(targetWidth, targetHeight);
+                        Size maxSizeAllowed = new Size(maxWidthAllowed, maxHeightAllowed);
+                        processImage(imageProxy, targetSize, maxSizeAllowed, quality, targetFileName, callbackContext);
+                    }
+
+                    @Override
+                    public void onError(@NonNull ImageCaptureException exception) {
+                        callbackContext.error(exception.getMessage());
+                    }
+                };
+
+                try {
+                    imageCapture.takePicture(getExecutor(), captureCallback);
+                } catch (IllegalStateException e) {
+                    if (e.getMessage() != null && e.getMessage().contains("bound")) {
+                        imageCapture = null;
+                        addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
+                        imageCapture.setTargetRotation(getTargetRotation());
+                        imageCapture.takePicture(getExecutor(), captureCallback);
+                    } else {
+                        callbackContext.error(e.getMessage());
+                    }
+                }
             } catch (Exception e) {
                 callbackContext.error(e.getMessage());
             }
