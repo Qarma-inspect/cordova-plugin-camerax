@@ -205,13 +205,13 @@ public class CameraXHelper {
                 try {
                     imageCapture.takePicture(getExecutor(), captureCallback);
                 } catch (IllegalStateException e) {
-                    if (e.getMessage() != null && e.getMessage().contains("bound")) {
+                    if (e.getMessage() != null && e.getMessage().contains("Not bound")) {
                         imageCapture = null;
                         addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
                         imageCapture.setTargetRotation(getTargetRotation());
                         imageCapture.takePicture(getExecutor(), captureCallback);
                     } else {
-                        callbackContext.error(e.getMessage());
+                        callbackContext.error(e.getMessage() != null ? e.getMessage() : e.toString());
                     }
                 }
             } catch (Exception e) {
