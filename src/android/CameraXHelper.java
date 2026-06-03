@@ -474,6 +474,7 @@ public class CameraXHelper {
     private void setupPreviewUseCaseAndInitCameraInstance(CallbackContext callbackContext) {
         try {
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+            cameraProvider.unbindAll();
             cameraSelector = setupCameraSelectorUseCase();
             preview = setupPreviewUseCase();
             imageCapture = setupImageCaptureUseCase(1200, 1600);
@@ -485,7 +486,7 @@ public class CameraXHelper {
 
             callbackContext.success();
         } catch (ExecutionException e) {
-            e.printStackTrace();
+            callbackContext.error("Failed to start the camera: " + e.getMessage());
         } catch (InterruptedException e) {
             callbackContext.error("Failed to start the camera: " + e.getMessage());
         }
