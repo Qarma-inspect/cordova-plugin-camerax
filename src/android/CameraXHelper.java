@@ -75,6 +75,7 @@ public class CameraXHelper {
     private CameraSelector cameraSelector;
     private Preview preview;
     private boolean recordingStoppedByUser = false;
+    private boolean torchEnabled = false;
     private final CordovaInterface cordova;
     private final CordovaWebView webView;
     private final CordovaPlugin plugin;
@@ -170,6 +171,7 @@ public class CameraXHelper {
         cameraInstance = null;
         imageCapture = null;
         videoCapture = null;
+        torchEnabled = false;
     }
 
     private void removePreviewView() {
@@ -228,6 +230,7 @@ public class CameraXHelper {
             cameraProvider.unbind(videoCapture);
             videoCapture = null;
             cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, imageCapture);
+            reapplyTorchIfEnabled();
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         } catch (InterruptedException e) {
@@ -351,6 +354,34 @@ public class CameraXHelper {
         }
     }
 
+    public boolean enableTorch(boolean enabled, CallbackContext callbackContext) {
+        if (cameraInstance == null) {
+            callbackContext.error("no camera instance");
+            return true;
+        }
+        if (!cameraInstance.getCameraInfo().hasFlashUnit()) {
+            callbackContext.error("no flash unit");
+            return true;
+        }
+        torchEnabled = enabled;
+        ListenableFuture<Void> future = cameraInstance.getCameraControl().enableTorch(enabled);
+        future.addListener(() -> {
+            try {
+                future.get();
+                callbackContext.success();
+            } catch (Exception e) {
+                callbackContext.error(e.getMessage() != null ? e.getMessage() : e.toString());
+            }
+        }, getExecutor());
+        return true;
+    }
+
+    private void reapplyTorchIfEnabled() {
+        if (torchEnabled && cameraInstance != null) {
+            cameraInstance.getCameraControl().enableTorch(true);
+        }
+    }
+
     @SuppressLint("RestrictedApi")
     public boolean startRecording(String fileName, int durationLimit, CallbackContext callbackContext) {
         if (cordova.hasPermission(videoPermissions[0]) && cordova.hasPermission(videoPermissions[1])) {
@@ -408,6 +439,7 @@ public class CameraXHelper {
             cameraProvider.unbind(imageCapture);
             imageCapture = null;
             cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, videoCapture);
+            reapplyTorchIfEnabled();
         } catch (ExecutionException e) {
             callbackContext.error(e.getMessage());
         } catch (InterruptedException e) {
