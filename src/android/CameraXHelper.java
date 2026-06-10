@@ -287,6 +287,7 @@ public class CameraXHelper {
     public boolean setZoom(float zoomRatio, CallbackContext callbackContext) {
         if (cameraInstance == null) {
             callbackContext.error("no camera instance");
+            return true;
         }
         cameraInstance.getCameraControl().setZoomRatio(zoomRatio);
         notifyZoomRatioUpdate(zoomRatio);
@@ -297,6 +298,7 @@ public class CameraXHelper {
     public boolean getMaxZoom(CallbackContext callbackContext) {
         if (cameraInstance == null) {
             callbackContext.error("no camera instance");
+            return true;
         }
         ZoomState zoomState = cameraInstance.getCameraInfo().getZoomState().getValue();
         if (zoomState != null) {
@@ -313,6 +315,7 @@ public class CameraXHelper {
     public boolean getFlashMode(CallbackContext callbackContext) {
         if (imageCapture == null) {
             callbackContext.error("no camera instance");
+            return true;
         }
         int mode = imageCapture.getFlashMode();
         PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, mode);
@@ -323,6 +326,7 @@ public class CameraXHelper {
     public boolean setFlashMode(String flashMode, CallbackContext callbackContext) {
         if (imageCapture == null) {
             callbackContext.error("no camera instance");
+            return true;
         }
         try {
             int mode = getFlashModeAsInteger(flashMode);
