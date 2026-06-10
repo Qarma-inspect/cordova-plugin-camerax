@@ -48,6 +48,11 @@ interface CameraXPlugin {
         onSuccess?: CameraPreviewSuccessHandler,
         onError?: CameraPreviewErrorHandler
     ): void;
+    enableTorchCameraX(
+        enabled: boolean,
+        onSuccess?: CameraPreviewSuccessHandler,
+        onError?: CameraPreviewErrorHandler
+    ): void;
     startRecordVideo(
         options?: any | CameraPreviewSuccessHandler,
         onSuccess?: CameraPreviewSuccessHandler | CameraPreviewErrorHandler,

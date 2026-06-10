@@ -140,4 +140,8 @@ CameraXPlugin.removeVideoFinalizedEventListener = function(callback) {
     document.removeEventListener("videoRecorderUpdate", event => callback(event.filePath));
 }
 
+CameraXPlugin.enableTorchCameraX = function(enabled, onSuccess, onError) {
+    exec(onSuccess, onError, PLUGIN_NAME, "enableTorchCameraX", [enabled]);
+};
+
 module.exports = CameraXPlugin;
