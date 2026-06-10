@@ -17,6 +17,7 @@ public class CameraXPlugin extends CordovaPlugin {
     private static final String SET_FLASH_MODE_ACTION = "setFlashModeCameraX";
     private static final String START_RECORDING_ACTION = "startRecordingCameraX";
     private static final String STOP_RECORDING_ACTION = "stopRecordingCameraX";
+    private static final String ENABLE_TORCH_ACTION = "enableTorchCameraX";
 
     public CameraXPlugin() {
         super();
@@ -47,6 +48,8 @@ public class CameraXPlugin extends CordovaPlugin {
                 return helper.startRecording(args.getString(0), args.getInt(1), callbackContext);
             case STOP_RECORDING_ACTION:
                 return helper.stopRecording(callbackContext);
+            case ENABLE_TORCH_ACTION:
+                return helper.enableTorch(args.getBoolean(0), callbackContext);
             default:
                 return false;
         }
