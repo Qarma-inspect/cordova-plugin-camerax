@@ -538,6 +538,15 @@ public class CameraXHelper {
             callbackContext.error("Failed to start the camera: " + e.getMessage());
         } catch (InterruptedException e) {
             callbackContext.error("Failed to start the camera: " + e.getMessage());
+        } catch (Exception e) {
+            // bindToLifecycle can throw IllegalArgumentException
+            // ("No supported surface combination is found ... May be attempting to bind too
+            // many use cases") which is an unchecked RuntimeException. This method runs inside a
+            // ProcessCameraProvider listener on the main executor, so an uncaught exception here
+            // escapes to the Looper and crashes the app (MOBILE-APP-1WHW), while the JS
+            // startCamera() promise never settles. Report it to JS instead so the camera state
+            // machine can handle/retry it cleanly.
+            callbackContext.error("Failed to start the camera: " + e.getMessage());
         }
     }
 
