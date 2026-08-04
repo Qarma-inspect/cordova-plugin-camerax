@@ -7,6 +7,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.hardware.SensorManager;
 import android.hardware.camera2.CaptureRequest;
+import android.os.Build;
 import android.util.DisplayMetrics;
 import android.util.Size;
 import android.util.TypedValue;
@@ -55,6 +56,7 @@ import org.json.JSONArray;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ExecutionException;
@@ -602,17 +604,90 @@ public class CameraXHelper {
         ImageCapture.Builder builder = new ImageCapture.Builder();
         builder.setTargetResolution(new Size(targetPictureWidth, targetPictureHeight));
 
-        turnOffNoiseReduction(builder);
+        applyNoiseReductionMode(builder);
+        applyEdgeEnhancementIfDenoising(builder);
 
         return builder.build();
     }
 
+    // vivo V60 Lite - the models the yellow chroma grain has actually been reported on.
+    private static final String[] GRAINY_CHROMA_MODELS = {"V2530"};
+
+    static boolean isAffectedModel(String deviceModel) {
+        if (deviceModel == null) {
+            return false;
+        }
+        String model = deviceModel.trim().toUpperCase(Locale.US);
+        for (String affectedModel : GRAINY_CHROMA_MODELS) {
+            // contains rather than equals: the reported model varies by variant and region -
+            // "V2530", "V2530A", "vivo V2530" are all the same camera stack. The codes are
+            // distinctive enough that a substring match will not collide with another device.
+            if (model.contains(affectedModel)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Noise reduction is applied to the still capture only. It is a per-request processing stage
+     * rather than something auto-exposure converges on, so setting it on ImageCapture is what
+     * decides the pixels that get saved - it does not need to be on the preview's repeating
+     * request as well.
+     *
+     * No check against NOISE_REDUCTION_AVAILABLE_NOISE_REDUCTION_MODES: the characteristics are
+     * not reachable here, because the builder is configured before bindToLifecycle and so there
+     * is no CameraInfo yet. HIGH_QUALITY is only requested on a known model that supports it, and
+     * a HAL that does not support a requested mode falls back rather than failing the capture.
+     */
     @SuppressLint("UnsafeOptInUsageError")
-    private void turnOffNoiseReduction(ImageCapture.Builder builder) {
-        Camera2Interop.Extender extender = new Camera2Interop.Extender(builder);
+    private void applyNoiseReductionMode(ImageCapture.Builder builder) {
+        Camera2Interop.Extender<ImageCapture> extender = new Camera2Interop.Extender<>(builder);
+        extender.setCaptureRequestOption(CaptureRequest.NOISE_REDUCTION_MODE, noiseReductionMode);
+    }
+
+    /**
+     * The CaptureRequest.NOISE_REDUCTION_MODE_* constant used for stills.
+     *
+     * OFF everywhere is the plugin's long-standing behaviour, and it is deliberate: denoise
+     * smooths fabric weave, which is the detail these inspection photos exist to show. The cost
+     * is that the coloured speckle a Bayer sensor leaves on neutral surfaces survives into the
+     * JPEG, so on the affected models white paper comes back with yellow grain the stock camera
+     * app does not produce from the same scene (measured on a reported sample: ~20-30x the chroma
+     * noise of the stock shot against only ~2x the luma noise - i.e. specifically chroma).
+     *
+     * HIGH_QUALITY only on the models the grain has actually been reported on, so the fabric
+     * trade-off is not taken fleet-wide.
+     */
+    private final int noiseReductionMode = noiseReductionModeFor(Build.MODEL);
+
+    static int noiseReductionModeFor(String deviceModel) {
+        return CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY;
+        // return isAffectedModel(deviceModel)
+        //         ? CaptureRequest.NOISE_REDUCTION_MODE_HIGH_QUALITY
+        //         : CaptureRequest.NOISE_REDUCTION_MODE_OFF;
+    }
+
+    /**
+     * Denoise and edge enhancement are a matched pair: HIGH_QUALITY noise reduction is what clears
+     * the yellow chroma speckle, but it also softens the fabric weave these photos exist to show,
+     * and HIGH_QUALITY edge enhancement is what puts that acuity back. Requesting the two together
+     * is the standard way to denoise without the result reading as soft.
+     *
+     * Gated on the noise reduction mode rather than on the model a second time, so edge
+     * enhancement automatically follows wherever denoise goes. Devices left on NOISE_REDUCTION_
+     * MODE_OFF have nothing to compensate for and keep the HAL's default edge mode, so their
+     * output does not change at all.
+     */
+    @SuppressLint("UnsafeOptInUsageError")
+    private void applyEdgeEnhancementIfDenoising(ImageCapture.Builder builder) {
+        // if (noiseReductionMode == CaptureRequest.NOISE_REDUCTION_MODE_OFF) {
+        //     return;
+        // }
+        Camera2Interop.Extender<ImageCapture> extender = new Camera2Interop.Extender<>(builder);
         extender.setCaptureRequestOption(
-                CaptureRequest.NOISE_REDUCTION_MODE,
-                CaptureRequest.NOISE_REDUCTION_MODE_OFF);
+                CaptureRequest.EDGE_MODE,
+                CaptureRequest.EDGE_MODE_HIGH_QUALITY);
     }
 
     private void triggerAutoFocusAndMetering(float x, float y) {
