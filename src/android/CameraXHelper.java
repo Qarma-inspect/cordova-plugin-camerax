@@ -182,13 +182,13 @@ public class CameraXHelper {
     }
 
     public boolean takePicture(int targetWidth, int targetHeight, int maxWidthAllowed, int maxHeightAllowed, int quality, String targetFileName,
-                               CallbackContext callbackContext) {
+                               int clockwiseAngleFromPortrait, CallbackContext callbackContext) {
         cordova.getActivity().runOnUiThread(() -> {
             try {
                 if (imageCapture == null) {
                     addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
                 }
-                imageCapture.setTargetRotation(getTargetRotation());
+                imageCapture.setTargetRotation(getTargetRotation(clockwiseAngleFromPortrait));
 
                 ImageCapture.OnImageCapturedCallback captureCallback = new ImageCapture.OnImageCapturedCallback() {
                     @Override
@@ -210,7 +210,7 @@ public class CameraXHelper {
                     if (e.getMessage() != null && e.getMessage().contains("Not bound")) {
                         imageCapture = null;
                         addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
-                        imageCapture.setTargetRotation(getTargetRotation());
+                        imageCapture.setTargetRotation(getTargetRotation(clockwiseAngleFromPortrait));
                         imageCapture.takePicture(getExecutor(), captureCallback);
                     } else {
                         callbackContext.error(e.getMessage() != null ? e.getMessage() : e.toString());
@@ -237,6 +237,32 @@ public class CameraXHelper {
             throw new RuntimeException(e);
         }
 
+    }
+
+    /**
+     * Rotation for a still capture. The angle from JS is preferred: it is the same
+     * OrientationService value that rotates the camera UI buttons, so the saved photo always
+     * matches the orientation the user saw on screen. On some devices (QARMA-21263, Huawei
+     * nova 12 / HarmonyOS 4.2) this class's own OrientationEventListener stays silent even
+     * though the app-level one works, which froze every capture at portrait. The sensor value
+     * remains the fallback for callers that send no angle (-1).
+     *
+     * The JS angle is clockwise-from-portrait, so it maps to the mirrored Surface rotation:
+     * a device turned 90 degrees clockwise has a display rotated 270 degrees counter-clockwise.
+     */
+    private int getTargetRotation(int clockwiseAngleFromPortrait) {
+        switch (clockwiseAngleFromPortrait) {
+            case 0:
+                return Surface.ROTATION_0;
+            case 90:
+                return Surface.ROTATION_270;
+            case 180:
+                return Surface.ROTATION_180;
+            case 270:
+                return Surface.ROTATION_90;
+            default:
+                return getTargetRotation();
+        }
     }
 
     private int getTargetRotation() {
