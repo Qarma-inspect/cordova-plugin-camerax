@@ -90,6 +90,7 @@ public class CameraXHelper {
 
     private OrientationEventListener mOrientationEventListener;
     private int mOrientation = 0;
+    private boolean rotateWithDisplay = false;
 
     private Timer recordingTimer;
 
@@ -134,7 +135,9 @@ public class CameraXHelper {
         return helper;
     }
 
-    public boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
+    public boolean startCameraX(int x, int y, int width, int height, boolean rotateWithDisplay,
+                                CallbackContext callbackContext) {
+        this.rotateWithDisplay = rotateWithDisplay;
         enableOrientationListener();
         if (cordova.hasPermission(imagePermissions[0])) {
             cordova.getActivity().runOnUiThread(() -> {
@@ -249,8 +252,16 @@ public class CameraXHelper {
      *
      * The JS angle is clockwise-from-portrait, so it maps to the mirrored Surface rotation:
      * a device turned 90 degrees clockwise has a display rotated 270 degrees counter-clockwise.
+     *
+     * Both mappings assume a portrait-natural device whose display never rotates. When the
+     * activity rotates with the device (rotateWithDisplay, used on big screens where the OS
+     * ignores fixed-orientation requests), the display rotation itself is the correct target
+     * for an upright capture, independent of the device's natural orientation.
      */
     private int getTargetRotation(int clockwiseAngleFromPortrait) {
+        if (rotateWithDisplay) {
+            return getDisplayRotation();
+        }
         switch (clockwiseAngleFromPortrait) {
             case 0:
                 return Surface.ROTATION_0;
@@ -265,7 +276,14 @@ public class CameraXHelper {
         }
     }
 
+    private int getDisplayRotation() {
+        return cordova.getActivity().getWindowManager().getDefaultDisplay().getRotation();
+    }
+
     private int getTargetRotation() {
+        if (rotateWithDisplay) {
+            return getDisplayRotation();
+        }
         if(mOrientation >= 45 && mOrientation < 135) {
             return Surface.ROTATION_270;
         } else if(mOrientation >= 135 && mOrientation < 225) {

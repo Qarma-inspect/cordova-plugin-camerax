@@ -26,8 +26,9 @@ CameraXPlugin.startCameraX = function (options, onSuccess, onError) {
     if (typeof (options.alpha) === 'undefined') {
         options.alpha = 1;
     }
+    options.rotateWithDisplay = options.rotateWithDisplay || false;
 
-    exec(onSuccess, onError, PLUGIN_NAME, "startCameraX", [options.x, options.y, options.width, options.height, options.targetPictureWidth, options.targetPictureHeight]);
+    exec(onSuccess, onError, PLUGIN_NAME, "startCameraX", [options.x, options.y, options.width, options.height, options.targetPictureWidth, options.targetPictureHeight, options.rotateWithDisplay]);
 };
 
 CameraXPlugin.stopCameraX = function (onSuccess, onError) {

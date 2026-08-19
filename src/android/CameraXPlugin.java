@@ -29,7 +29,7 @@ public class CameraXPlugin extends CordovaPlugin {
         switch (action) {
             case START_CAMERA_ACTION:
                 return helper.startCameraX(args.getInt(0), args.getInt(1), args.getInt(2), args.getInt(3),
-                        callbackContext);
+                        args.optBoolean(6, false), callbackContext);
             case STOP_CAMERA_ACTION:
                 return helper.stopCameraX(callbackContext);
             case TAKE_PICTURE_ACTION:

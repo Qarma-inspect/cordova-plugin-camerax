@@ -6,6 +6,12 @@ interface CameraPreviewStartCameraXOptions {
     camera?: CameraPreviewCameraDirection | string;
     height?: number;
     previewDrag?: boolean;
+    /**
+     * When true, photo and video target rotation follows the display rotation instead of
+     * the accelerometer angle. Use on devices where the activity rotates with the device
+     * (e.g. Android big screens, whose OS ignores fixed-orientation requests).
+     */
+    rotateWithDisplay?: boolean;
     tapFocus?: boolean;
     tapPhoto?: boolean;
     toBack?: boolean;
