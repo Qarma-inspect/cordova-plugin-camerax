@@ -82,12 +82,42 @@ CameraXPlugin.getMaxZoomCameraX = function(onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "getMaxZoomCameraX", []);
 };
 
+// QARMA-21811: the add/remove pair used to wrap the callback in a fresh arrow function on every
+// call, so removeEventListener never matched anything and each camera panel leaked its
+// listener. The wrapper is now remembered per callback so removal actually removes it.
+var documentEventWrappers = new Map();
+
+function addDocumentEventListener(eventName, callback, extract) {
+    var wrapper = function(event) { callback(extract(event)); };
+    if (!documentEventWrappers.has(callback)) {
+        documentEventWrappers.set(callback, {});
+    }
+    var wrappersForCallback = documentEventWrappers.get(callback);
+    if (wrappersForCallback[eventName]) {
+        return;
+    }
+    wrappersForCallback[eventName] = wrapper;
+    document.addEventListener(eventName, wrapper);
+}
+
+function removeDocumentEventListener(eventName, callback) {
+    var wrappersForCallback = documentEventWrappers.get(callback);
+    if (!wrappersForCallback || !wrappersForCallback[eventName]) {
+        return;
+    }
+    document.removeEventListener(eventName, wrappersForCallback[eventName]);
+    delete wrappersForCallback[eventName];
+    if (Object.keys(wrappersForCallback).length === 0) {
+        documentEventWrappers.delete(callback);
+    }
+}
+
 CameraXPlugin.addZoomEventListener = function(callback) {
-    document.addEventListener("zoomRatioUpdate", event => callback(event.ratio));
+    addDocumentEventListener("zoomRatioUpdate", callback, function(event) { return event.ratio; });
 }
 
 CameraXPlugin.removeZoomEventListener = function(callback) {
-    document.removeEventListener("zoomRatioUpdate", event => callback(event.ratio));
+    removeDocumentEventListener("zoomRatioUpdate", callback);
 }
 
 CameraXPlugin.setZoomCameraX = function(zoom, onSuccess, onError) {
@@ -133,11 +163,11 @@ CameraXPlugin.stopRecordingCameraX = function (onSuccess, onError) {
 };
 
 CameraXPlugin.addVideoFinalizedEventListener = function(callback) {
-    document.addEventListener("videoRecorderUpdate", event => callback(event.filePath));
+    addDocumentEventListener("videoRecorderUpdate", callback, function(event) { return event.filePath; });
 }
 
 CameraXPlugin.removeVideoFinalizedEventListener = function(callback) {
-    document.removeEventListener("videoRecorderUpdate", event => callback(event.filePath));
+    removeDocumentEventListener("videoRecorderUpdate", callback);
 }
 
 // QARMA-21334 diagnostics only - see CameraXHelper.java for what each event reports.

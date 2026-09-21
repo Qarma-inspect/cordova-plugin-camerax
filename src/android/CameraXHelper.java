@@ -23,6 +23,7 @@ import androidx.camera.core.AspectRatio;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraControl;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.CameraState;
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.ImageCapture;
@@ -79,6 +80,8 @@ public class CameraXHelper {
     private Preview preview;
     private PreviewView streamStateObservedView;
     private Observer<PreviewView.StreamState> streamStateObserver;
+    private Camera cameraStateObservedCamera;
+    private Observer<CameraState> cameraStateObserver;
     private boolean recordingStoppedByUser = false;
     private boolean torchEnabled = false;
     private final CordovaInterface cordova;
@@ -177,6 +180,15 @@ public class CameraXHelper {
         return o;
     }
 
+    private JSONObject cameraStateIds(CameraState state) {
+        JSONObject o = diagnosticIds();
+        try {
+            o.put("type", state.getType().name());
+            o.put("error", state.getError() != null ? state.getError().getCode() : JSONObject.NULL);
+        } catch (JSONException ignored) { }
+        return o;
+    }
+
     private void notifyDiagnostic(String kind, JSONObject extra) {
         JSONObject payload = extra != null ? extra : new JSONObject();
         try {
@@ -205,6 +217,69 @@ public class CameraXHelper {
         }
     }
 
+    /**
+     * QARMA-21811: bindToLifecycle succeeds even when the camera device then fails to open
+     * (in use by another client, disabled by policy, HAL fatal error, ...). Those failures only
+     * surface through CameraInfo.getCameraState(), which nobody observed, so the app saw a
+     * successful start followed by a black preview. Every state change is forwarded to JS as a
+     * "camera-state" diagnostic; the ones carrying an error code fail the pending start there.
+     */
+    private void attachCameraStateObserver(Camera camera) {
+        detachCameraStateObserver();
+        cameraStateObservedCamera = camera;
+        Observer<CameraState> observer = state -> notifyDiagnostic("camera-state", cameraStateIds(state));
+        cameraStateObserver = observer;
+        cordova.getActivity().runOnUiThread(() -> camera.getCameraInfo().getCameraState().observeForever(observer));
+    }
+
+    private void detachCameraStateObserver() {
+        if (cameraStateObserver != null && cameraStateObservedCamera != null) {
+            Camera cameraToDetach = cameraStateObservedCamera;
+            Observer<CameraState> observerToRemove = cameraStateObserver;
+            cordova.getActivity().runOnUiThread(() -> cameraToDetach.getCameraInfo().getCameraState().removeObserver(observerToRemove));
+            cameraStateObserver = null;
+            cameraStateObservedCamera = null;
+        }
+    }
+
+    /**
+     * QARMA-21811: a new session must never inherit native state from the previous one. The
+     * Swoon Realme 14 Pro logged "Recording.stop() on a null object", "A recording is already in
+     * progress" and "Not bound to a valid Camera" across sessions the app believed were closed.
+     * Called on the UI thread at the start of every startCameraX().
+     */
+    private void resetSessionState() {
+        if (recording != null) {
+            // Its Finalize event is ignored by the identity check in startRecording's listener
+            // once recording no longer points at it.
+            try {
+                recording.stop();
+            } catch (Exception ignored) { }
+            recording = null;
+        }
+        resetRecordingTimer();
+        detachStreamStateObserver();
+        detachCameraStateObserver();
+        removePreviewView();
+        resetCameraInstance();
+    }
+
+    /**
+     * A start that failed after setupPreviewView() must not leave its (black) PreviewView on top
+     * of the WebView, nor half-initialised fields for the next start or stop to trip over.
+     */
+    private void cleanupFailedStart() {
+        try {
+            if (cameraProviderFuture != null && cameraProviderFuture.isDone()) {
+                cameraProviderFuture.get().unbindAll();
+            }
+        } catch (Exception ignored) { }
+        detachStreamStateObserver();
+        detachCameraStateObserver();
+        removePreviewView();
+        resetCameraInstance();
+    }
+
     public static CameraXHelper getInstance(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
                                             CordovaPlugin cordovaPlugin) {
         if (helper == null) {
@@ -218,10 +293,16 @@ public class CameraXHelper {
         notifyDiagnostic("start-requested", diagnosticIds());
         if (cordova.hasPermission(imagePermissions[0])) {
             cordova.getActivity().runOnUiThread(() -> {
+                resetSessionState();
                 setupPreviewView(x, y, width, height);
                 notifyDiagnostic("preview-view-created", diagnosticIds());
+                // QARMA-21811: the bind runs later, when the provider future completes. On a
+                // cold start that is asynchronous, and a second startCameraX() can replace
+                // previewView in between. Bind against the view THIS call created, not whatever
+                // the field holds by then.
+                final PreviewView requestedPreviewView = previewView;
                 cameraProviderFuture = ProcessCameraProvider.getInstance(cordova.getActivity());
-                cameraProviderFuture.addListener(() -> setupPreviewUseCaseAndInitCameraInstance(callbackContext),
+                cameraProviderFuture.addListener(() -> setupPreviewUseCaseAndInitCameraInstance(requestedPreviewView, callbackContext),
                         ContextCompat.getMainExecutor(cordova.getContext()));
             });
         } else {
@@ -237,37 +318,45 @@ public class CameraXHelper {
         final PreviewView requestedPreviewView = previewView;
         final int requestedPreviewViewId = requestedPreviewView != null ? System.identityHashCode(requestedPreviewView) : -1;
         notifyDiagnostic("stop-requested", diagnosticIds());
-        if (cameraInstance != null) {
-            cameraProviderFuture.addListener(() -> {
-                int livePreviewViewId = previewView != null ? System.identityHashCode(previewView) : -1;
-                boolean staleUnbind = cameraInstance != requestedCameraInstance || previewView != requestedPreviewView;
-                if (staleUnbind) {
-                    // QARMA-21334 fix: this unbind was queued for the camera/previewView that
-                    // was live when stopCameraX() was called, but a newer startCameraX() has
-                    // since rebound to a different instance (or another stop already tore the
-                    // old one down). unbindAll()/removePreviewView() read those fields live, so
-                    // running them now would unbind and remove the CURRENT, unrelated session
-                    // instead of the one this call was asked to stop - silently blacking out a
-                    // camera screen the app still believes is active. Nothing this call targeted
-                    // is left to unbind, so skip the teardown and resolve as a no-op.
-                    notifyDiagnostic("stale-unbind-detected", staleUnbindIds(requestedPreviewViewId, livePreviewViewId));
-                    callbackContext.success();
-                    return;
-                }
-                notifyDiagnostic("unbind-begin", diagnosticIds());
-                try {
-                    cameraProviderFuture.get().unbindAll();
-                    detachStreamStateObserver();
-                    resetCameraInstance();
-                    removePreviewView();
-                    notifyDiagnostic("unbind-end", diagnosticIdsWithOk(true, null));
-                    callbackContext.success();
-                } catch (Exception e) {
-                    notifyDiagnostic("unbind-end", diagnosticIdsWithOk(false, e.getMessage()));
-                    callbackContext.error(e.getMessage());
-                }
-            }, ContextCompat.getMainExecutor(cordova.getContext()));
+        if (cameraInstance == null) {
+            // QARMA-21811: this used to return without ever invoking the callback, so the JS
+            // stop promise stayed pending and the camera state machine was stuck at STOPPING
+            // (Done, Cancel and back all refused) whenever a stop followed a failed start.
+            // There is nothing bound to unbind; a failed start already cleaned up after itself.
+            notifyDiagnostic("stop-noop", diagnosticIds());
+            callbackContext.success();
+            return true;
         }
+        cameraProviderFuture.addListener(() -> {
+            int livePreviewViewId = previewView != null ? System.identityHashCode(previewView) : -1;
+            boolean staleUnbind = cameraInstance != requestedCameraInstance || previewView != requestedPreviewView;
+            if (staleUnbind) {
+                // QARMA-21334 fix: this unbind was queued for the camera/previewView that
+                // was live when stopCameraX() was called, but a newer startCameraX() has
+                // since rebound to a different instance (or another stop already tore the
+                // old one down). unbindAll()/removePreviewView() read those fields live, so
+                // running them now would unbind and remove the CURRENT, unrelated session
+                // instead of the one this call was asked to stop - silently blacking out a
+                // camera screen the app still believes is active. Nothing this call targeted
+                // is left to unbind, so skip the teardown and resolve as a no-op.
+                notifyDiagnostic("stale-unbind-detected", staleUnbindIds(requestedPreviewViewId, livePreviewViewId));
+                callbackContext.success();
+                return;
+            }
+            notifyDiagnostic("unbind-begin", diagnosticIds());
+            try {
+                cameraProviderFuture.get().unbindAll();
+                detachStreamStateObserver();
+                detachCameraStateObserver();
+                resetCameraInstance();
+                removePreviewView();
+                notifyDiagnostic("unbind-end", diagnosticIdsWithOk(true, null));
+                callbackContext.success();
+            } catch (Exception e) {
+                notifyDiagnostic("unbind-end", diagnosticIdsWithOk(false, e.getMessage()));
+                callbackContext.error(e.getMessage());
+            }
+        }, ContextCompat.getMainExecutor(cordova.getContext()));
         return true;
     }
 
@@ -279,10 +368,14 @@ public class CameraXHelper {
     }
 
     private void removePreviewView() {
+        if (this.previewView == null) {
+            return;
+        }
         ViewGroup parentView = (ViewGroup) this.previewView.getParent();
         if (parentView != null) {
             parentView.removeView(this.previewView);
         }
+        this.previewView = null;
     }
 
     public boolean takePicture(int targetWidth, int targetHeight, int maxWidthAllowed, int maxHeightAllowed, int quality, String targetFileName,
@@ -294,6 +387,7 @@ public class CameraXHelper {
                 }
                 imageCapture.setTargetRotation(getTargetRotation(clockwiseAngleFromPortrait));
 
+                final boolean[] rebound = {false};
                 ImageCapture.OnImageCapturedCallback captureCallback = new ImageCapture.OnImageCapturedCallback() {
                     @Override
                     public void onCaptureSuccess(@NonNull ImageProxy imageProxy) {
@@ -304,6 +398,28 @@ public class CameraXHelper {
 
                     @Override
                     public void onError(@NonNull ImageCaptureException exception) {
+                        if (exception.getImageCaptureError() == ImageCapture.ERROR_INVALID_CAMERA && !rebound[0]) {
+                            // QARMA-21811: "Not bound to a valid Camera". The use case we hold
+                            // was unbound behind our back (a stop that landed on the wrong
+                            // session, an activity lifecycle event, ...). On CameraX 1.4 this
+                            // arrives here through onError, not as the synchronous
+                            // IllegalStateException the catch below was written for. Rebind
+                            // preview + a fresh ImageCapture once and retry the shot.
+                            rebound[0] = true;
+                            notifyDiagnostic("capture-rebind", diagnosticIdsWithOk(false, exception.getMessage()));
+                            ImageCapture.OnImageCapturedCallback retryCallback = this;
+                            cordova.getActivity().runOnUiThread(() -> {
+                                try {
+                                    imageCapture = null;
+                                    addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
+                                    imageCapture.setTargetRotation(getTargetRotation(clockwiseAngleFromPortrait));
+                                    imageCapture.takePicture(getExecutor(), retryCallback);
+                                } catch (Exception e) {
+                                    callbackContext.error(e.getMessage() != null ? e.getMessage() : e.toString());
+                                }
+                            });
+                            return;
+                        }
                         callbackContext.error(exception.getMessage());
                     }
                 };
@@ -312,6 +428,8 @@ public class CameraXHelper {
                     imageCapture.takePicture(getExecutor(), captureCallback);
                 } catch (IllegalStateException e) {
                     if (e.getMessage() != null && e.getMessage().contains("Not bound")) {
+                        // Older CameraX threw synchronously; count it as the one allowed rebind.
+                        rebound[0] = true;
                         imageCapture = null;
                         addImageCaptureUseCase(Math.min(targetWidth, targetHeight), Math.max(targetWidth, targetHeight));
                         imageCapture.setTargetRotation(getTargetRotation(clockwiseAngleFromPortrait));
@@ -331,9 +449,11 @@ public class CameraXHelper {
         try {
             imageCapture = setupImageCaptureUseCase(width, height);
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-            cameraProvider.unbind(videoCapture);
+            if (videoCapture != null) {
+                cameraProvider.unbind(videoCapture);
+            }
             videoCapture = null;
-            cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, imageCapture);
+            cameraInstance = cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, imageCapture);
             reapplyTorchIfEnabled();
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
@@ -517,6 +637,17 @@ public class CameraXHelper {
         if (cordova.hasPermission(videoPermissions[0]) && cordova.hasPermission(videoPermissions[1])) {
             cordova.getActivity().runOnUiThread(() -> {
                 try {
+                    if (recording != null) {
+                        // QARMA-21811: "A recording is already in progress" - a recording the
+                        // app believed finished (auto-stopped at the duration limit, or left over
+                        // from a session that was torn down) was still alive natively. Its
+                        // Finalize event will still arrive asynchronously; the identity check in
+                        // the listener below makes sure it is ignored rather than mistaken for
+                        // the new recording finishing.
+                        recording.stop();
+                        recording = null;
+                        resetRecordingTimer();
+                    }
                     if(videoCapture == null) {
                         addVideoCaptureUseCase(callbackContext);
                     }
@@ -532,9 +663,17 @@ public class CameraXHelper {
                             Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                         callbackContext.error("Permission not allowed");
                     }
-                    recording = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
+                    // Events are delivered on the main executor, and this block runs on the main
+                    // thread, so holder[0] is assigned before the first event can be observed.
+                    final Recording[] holder = new Recording[1];
+                    holder[0] = videoCapture.getOutput().prepareRecording(cordova.getActivity(), options)
                             .withAudioEnabled()
                             .start(getExecutor(), videoRecordEvent -> {
+                                if (holder[0] != recording) {
+                                    // Event from a recording that has since been replaced or
+                                    // stopped. Its timer and its file are not ours to report.
+                                    return;
+                                }
                                 if (videoRecordEvent instanceof VideoRecordEvent.Start) {
                                     stopRecordingAfterMilliseconds((durationLimit + 1) * 1000L);
                                     callbackContext.success();
@@ -542,8 +681,12 @@ public class CameraXHelper {
                                 if (videoRecordEvent instanceof VideoRecordEvent.Finalize) {
                                     resetRecordingTimer();
                                     notifyRecordedVideoPath((VideoRecordEvent.Finalize) videoRecordEvent);
+                                    // Finalised: nothing left to stop. Lets stopRecording() and
+                                    // the next startRecording() see the truth.
+                                    recording = null;
                                 }
                             });
+                    recording = holder[0];
                 } catch (Exception e) {
                     callbackContext.error(e.getMessage());
                 }
@@ -566,9 +709,11 @@ public class CameraXHelper {
         try {
             videoCapture = setupVideoCaptureUseCase();
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-            cameraProvider.unbind(imageCapture);
+            if (imageCapture != null) {
+                cameraProvider.unbind(imageCapture);
+            }
             imageCapture = null;
-            cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, videoCapture);
+            cameraInstance = cameraProvider.bindToLifecycle(cordova.getActivity(), cameraSelector, preview, videoCapture);
             reapplyTorchIfEnabled();
         } catch (ExecutionException e) {
             callbackContext.error(e.getMessage());
@@ -597,9 +742,16 @@ public class CameraXHelper {
     }
 
     public boolean stopRecording(CallbackContext callbackContext) {
+        if (recording == null) {
+            // QARMA-21811: was an NPE ("Recording.stop() on a null object reference") when the
+            // recording had already been finalised natively, e.g. by the duration-limit timer.
+            callbackContext.error("no active recording");
+            return true;
+        }
         recordingStoppedByUser = true;
         recording.stop();
         recording = null;
+        resetRecordingTimer();
         PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, recordFilePath);
         delayInMilliseconds(() -> callbackContext.sendPluginResult(pluginResult), 1000L);
         return true;
@@ -650,13 +802,21 @@ public class CameraXHelper {
         cordova.getActivity().addContentView(previewView, layoutParams);
     }
 
-    private void setupPreviewUseCaseAndInitCameraInstance(CallbackContext callbackContext) {
+    private void setupPreviewUseCaseAndInitCameraInstance(PreviewView requestedPreviewView, CallbackContext callbackContext) {
+        if (previewView != requestedPreviewView) {
+            // QARMA-21811: a newer startCameraX() ran before this bind got its turn (or a stop
+            // removed the view). Binding now would attach this session's use cases to the newer
+            // session's view, and failing now would tear that newer session down. Do neither.
+            notifyDiagnostic("stale-bind-skipped", diagnosticIds());
+            callbackContext.error("Failed to start the camera: superseded by a newer start");
+            return;
+        }
         notifyDiagnostic("bind-begin", diagnosticIds());
         try {
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
             cameraProvider.unbindAll();
             cameraSelector = setupCameraSelectorUseCase();
-            preview = setupPreviewUseCase();
+            preview = setupPreviewUseCase(requestedPreviewView);
             imageCapture = setupImageCaptureUseCase(1200, 1600);
 
             // The reason we don't bind videoCapture use case here
@@ -664,14 +824,23 @@ public class CameraXHelper {
             cameraInstance = cameraProvider.bindToLifecycle(
                     cordova.getActivity(), cameraSelector, preview, imageCapture);
 
-            attachStreamStateObserver(previewView);
+            // Sanity check only: bindToLifecycle throws rather than returning unbound use cases,
+            // so this guards against a future CameraX behaviour change, not a known failure.
+            if (!cameraProvider.isBound(preview) || !cameraProvider.isBound(imageCapture)) {
+                throw new IllegalStateException("use cases not bound after bindToLifecycle");
+            }
+
+            attachStreamStateObserver(requestedPreviewView);
+            attachCameraStateObserver(cameraInstance);
             notifyDiagnostic("bind-end", diagnosticIdsWithOk(true, null));
             callbackContext.success();
         } catch (ExecutionException e) {
             notifyDiagnostic("bind-end", diagnosticIdsWithOk(false, e.getMessage()));
+            cleanupFailedStart();
             callbackContext.error("Failed to start the camera: " + e.getMessage());
         } catch (InterruptedException e) {
             notifyDiagnostic("bind-end", diagnosticIdsWithOk(false, e.getMessage()));
+            cleanupFailedStart();
             callbackContext.error("Failed to start the camera: " + e.getMessage());
         } catch (Exception e) {
             // bindToLifecycle can throw IllegalArgumentException
@@ -682,38 +851,43 @@ public class CameraXHelper {
             // startCamera() promise never settles. Report it to JS instead so the camera state
             // machine can handle/retry it cleanly.
             notifyDiagnostic("bind-end", diagnosticIdsWithOk(false, e.getMessage()));
+            cleanupFailedStart();
             callbackContext.error("Failed to start the camera: " + e.getMessage());
         }
     }
 
-    private Preview setupPreviewUseCase() {
+    private Preview setupPreviewUseCase(PreviewView view) {
         Preview preview = new Preview.Builder()
                 .setTargetAspectRatio(AspectRatio.RATIO_4_3)
                 .build();
-        tapToFocusAndPinchToZoom();
-        preview.setSurfaceProvider(this.previewView.getSurfaceProvider());
+        tapToFocusAndPinchToZoom(view);
+        preview.setSurfaceProvider(view.getSurfaceProvider());
         return preview;
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private void tapToFocusAndPinchToZoom() {
+    private void tapToFocusAndPinchToZoom(PreviewView view) {
         ScaleGestureDetector scaleGestureDetector = new ScaleGestureDetector(cordova.getActivity(),
                 new ScaleGestureDetector.SimpleOnScaleGestureListener() {
                     @Override
                     public boolean onScale(@NonNull ScaleGestureDetector detector) {
-                        ZoomState zoomState = cameraInstance.getCameraInfo().getZoomState().getValue();
+                        Camera camera = cameraInstance;
+                        if (camera == null) {
+                            return true;
+                        }
+                        ZoomState zoomState = camera.getCameraInfo().getZoomState().getValue();
                         if (zoomState != null) {
                             float scale = zoomState.getZoomRatio() * detector.getScaleFactor();
-                            cameraInstance.getCameraControl().setZoomRatio(scale);
+                            camera.getCameraControl().setZoomRatio(scale);
                             notifyZoomRatioUpdate(scale);
                         }
 
                         return true;
                     }
                 });
-        previewView.setOnTouchListener((v, event) -> {
+        view.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_UP) {
-                triggerAutoFocusAndMetering(event.getX(), event.getY());
+                triggerAutoFocusAndMetering(view, event.getX(), event.getY());
             } else {
                 scaleGestureDetector.onTouchEvent(event);
             }
@@ -751,10 +925,15 @@ public class CameraXHelper {
                 CaptureRequest.NOISE_REDUCTION_MODE_OFF);
     }
 
-    private void triggerAutoFocusAndMetering(float x, float y) {
-        CameraControl cameraControl = cameraInstance.getCameraControl();
+    private void triggerAutoFocusAndMetering(PreviewView view, float x, float y) {
+        Camera camera = cameraInstance;
+        if (camera == null || view != previewView) {
+            // Gesture finished on a view that no longer belongs to the live session.
+            return;
+        }
+        CameraControl cameraControl = camera.getCameraControl();
 
-        MeteringPointFactory factory = previewView.getMeteringPointFactory();
+        MeteringPointFactory factory = view.getMeteringPointFactory();
         MeteringPoint point = factory.createPoint(x, y);
         FocusMeteringAction action = new FocusMeteringAction.Builder(point).build();
         cameraControl.startFocusAndMetering(action);
