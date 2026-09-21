@@ -140,6 +140,15 @@ CameraXPlugin.removeVideoFinalizedEventListener = function(callback) {
     document.removeEventListener("videoRecorderUpdate", event => callback(event.filePath));
 }
 
+// QARMA-21334 diagnostics only - see CameraXHelper.java for what each event reports.
+CameraXPlugin.addCameraDiagnosticEventListener = function(callback) {
+    document.addEventListener("cameraDiagnostic", callback);
+}
+
+CameraXPlugin.removeCameraDiagnosticEventListener = function(callback) {
+    document.removeEventListener("cameraDiagnostic", callback);
+}
+
 CameraXPlugin.enableTorchCameraX = function(enabled, onSuccess, onError) {
     exec(onSuccess, onError, PLUGIN_NAME, "enableTorchCameraX", [enabled]);
 };

@@ -66,6 +66,9 @@ interface CameraXPlugin {
     addVideoFinalizedEventListener(callback: (filePath: string) => void): void;
     removeVideoFinalizedEventListener(callback: (filePath: string) => void): void;
 
+    addCameraDiagnosticEventListener(callback: (event: any) => void): void;
+    removeCameraDiagnosticEventListener(callback: (event: any) => void): void;
+
     takePictureWithCameraX(
         options?: CameraPreviewTakePictureOptions | CameraPreviewSuccessHandler,
         onSuccess?: CameraPreviewSuccessHandler | CameraPreviewErrorHandler,
