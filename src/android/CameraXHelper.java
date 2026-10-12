@@ -43,8 +43,10 @@ import androidx.camera.video.Recording;
 import androidx.camera.video.VideoCapture;
 import androidx.camera.video.VideoRecordEvent;
 import androidx.camera.view.PreviewView;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.Observer;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.cordova.CallbackContext;
@@ -84,9 +86,12 @@ public class CameraXHelper {
     private Observer<CameraState> cameraStateObserver;
     private boolean recordingStoppedByUser = false;
     private boolean torchEnabled = false;
-    private final CordovaInterface cordova;
-    private final CordovaWebView webView;
-    private final CordovaPlugin plugin;
+    // Not final: Cordova builds a new CordovaInterfaceImpl, CordovaWebView and plugin instance
+    // every time MainActivity is recreated, and this helper is a process-scoped singleton that
+    // outlives them. See rebindTo().
+    private CordovaInterface cordova;
+    private CordovaWebView webView;
+    private CordovaPlugin plugin;
     private static final int CAM_REQ_CODE = 0;
     private static final String[] imagePermissions = {
             Manifest.permission.CAMERA,
@@ -284,8 +289,89 @@ public class CameraXHelper {
                                             CordovaPlugin cordovaPlugin) {
         if (helper == null) {
             helper = new CameraXHelper(cordovaInterface, cordovaWebView, cordovaPlugin);
+        } else {
+            helper.rebindTo(cordovaInterface, cordovaWebView, cordovaPlugin);
         }
         return helper;
+    }
+
+    /**
+     * Sentry MOBILE-APP-1V0D: this helper is a process-scoped singleton, but Cordova creates a
+     * new CordovaInterfaceImpl, CordovaWebView and plugin instance every time MainActivity is
+     * recreated (CordovaActivity.onCreate). getInstance() used to keep whatever was passed on
+     * first use and discard every later set, so after one recreation cordova.getActivity()
+     * returned the DESTROYED Activity for the rest of the process's life.
+     *
+     * CameraX does not report that. LifecycleCameraRepository.createLifecycleCamera() skips
+     * registerCamera() when the lifecycle is DESTROYED, and bindToLifecycleCamera() then returns
+     * early ("LifecycleCamera is not registered due to lifecycle destroyed, simply do nothing"),
+     * so bindToLifecycle() throws nothing and hands back a Camera bound to nothing. Every start
+     * failed the isBound() check below with "use cases not bound after bindToLifecycle", and
+     * every JS retry failed identically because the state is permanent, not transient. The stale
+     * webView also meant diagnostics and events were posted into a dead WebView.
+     *
+     * CameraXPlugin.execute() passes the live references on every call, so refreshing them here
+     * is enough to keep the singleton pointed at the current Activity.
+     */
+    private void rebindTo(CordovaInterface cordovaInterface, CordovaWebView cordovaWebView,
+                          CordovaPlugin cordovaPlugin) {
+        boolean activityChanged = cordova == null
+                || cordova.getActivity() != cordovaInterface.getActivity();
+        cordova = cordovaInterface;
+        webView = cordovaWebView;
+        plugin = cordovaPlugin;
+        if (activityChanged) {
+            discardStateOfPreviousActivity();
+        }
+    }
+
+    /**
+     * The previous Activity is gone, and its PreviewView, observers and bound camera went with
+     * it. Drop them without posting anything to the old Activity -- its views are already
+     * detached and its lifecycle is destroyed -- and re-create the orientation listener against
+     * the new one. The ProcessCameraProvider itself is process-scoped, so unbinding there is
+     * both safe and necessary to release a camera the dead Activity still held.
+     */
+    private void discardStateOfPreviousActivity() {
+        notifyDiagnostic("activity-replaced", diagnosticIds());
+        if (recording != null) {
+            try {
+                recording.stop();
+            } catch (Exception ignored) { }
+            recording = null;
+        }
+        resetRecordingTimer();
+        try {
+            if (cameraProviderFuture != null && cameraProviderFuture.isDone()) {
+                cameraProviderFuture.get().unbindAll();
+            }
+        } catch (Exception ignored) { }
+        streamStateObserver = null;
+        streamStateObservedView = null;
+        cameraStateObserver = null;
+        cameraStateObservedCamera = null;
+        previewView = null;
+        preview = null;
+        cameraSelector = null;
+        cameraProviderFuture = null;
+        resetCameraInstance();
+        if (mOrientationEventListener != null) {
+            mOrientationEventListener.disable();
+            mOrientationEventListener = null;
+        }
+        registerOrientationListener();
+    }
+
+    /**
+     * CameraX binds silently to a destroyed lifecycle (see rebindTo()), so a start against a
+     * dead Activity cannot be detected from bindToLifecycle()'s result. Check up front, so the
+     * failure names its cause instead of surfacing as "use cases not bound".
+     */
+    private boolean isHostActivityDestroyed() {
+        AppCompatActivity activity = cordova.getActivity();
+        return activity == null
+                || activity.isDestroyed()
+                || activity.getLifecycle().getCurrentState() == Lifecycle.State.DESTROYED;
     }
 
     public boolean startCameraX(int x, int y, int width, int height, CallbackContext callbackContext) {
@@ -811,6 +897,14 @@ public class CameraXHelper {
             callbackContext.error("Failed to start the camera: superseded by a newer start");
             return;
         }
+        if (isHostActivityDestroyed()) {
+            // Binding here would silently do nothing and then fail the isBound() check below
+            // with a message that describes the symptom rather than the cause.
+            notifyDiagnostic("bind-skipped-destroyed-activity", diagnosticIds());
+            cleanupFailedStart();
+            callbackContext.error("Failed to start the camera: the activity hosting the camera was destroyed");
+            return;
+        }
         notifyDiagnostic("bind-begin", diagnosticIds());
         try {
             ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
@@ -824,8 +918,11 @@ public class CameraXHelper {
             cameraInstance = cameraProvider.bindToLifecycle(
                     cordova.getActivity(), cameraSelector, preview, imageCapture);
 
-            // Sanity check only: bindToLifecycle throws rather than returning unbound use cases,
-            // so this guards against a future CameraX behaviour change, not a known failure.
+            // bindToLifecycle() does NOT throw when the bind is a no-op: with a destroyed
+            // LifecycleOwner, CameraX skips registerCamera() and bindToLifecycleCamera() returns
+            // early, so it returns a Camera bound to nothing (Sentry MOBILE-APP-1V0D). The
+            // isHostActivityDestroyed() check above catches the known cause; this stays as the
+            // backstop for any other way the use cases end up unregistered.
             if (!cameraProvider.isBound(preview) || !cameraProvider.isBound(imageCapture)) {
                 throw new IllegalStateException("use cases not bound after bindToLifecycle");
             }
